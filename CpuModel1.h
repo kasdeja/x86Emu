@@ -1,0 +1,6 @@
+#ifndef X86EMU_CPU_MODEL_1
+#define X86EMU_CPU_MODEL_1
+
+
+
+#endif /* X86EMU_CPU_MODEL_1 */

@@ -9,6 +9,7 @@ public:
     struct Result
     {
         int      status;
+        uint32_t imageSize;
         uint16_t initCS;
         uint16_t initIP;
         uint16_t initSS;

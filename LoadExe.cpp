@@ -25,7 +25,7 @@
 struct ExeHeader
 {
     uint16_t magic;
-    uint16_t lastPageSize;
+    uint16_t partialPageSize;
     uint16_t pageCnt;
     uint16_t relocCnt;
     uint16_t headerSize;
@@ -79,23 +79,23 @@ LoadExe::Result LoadExe::FromFile(uint16_t startSegment, const char *filename)
 
     printf("LoadExe::FromFile() opened '%s'...\n", filename);
     printf("Header:\n");
-    printf("    magic         '%c%c'\n",        header.magic & 0xff, header.magic >> 8);
-    printf("    lastPageSize  %d\n",            header.lastPageSize);
-    printf("    pageCnt       %d (%d bytes)\n", header.pageCnt, header.pageCnt * 512);
-    printf("    relocCnt      %d\n",            header.relocCnt);
-    printf("    headerSize    %d (%d bytes)\n", header.headerSize, header.headerSize * 16);
-    printf("    minAlloc      %d (%d bytes)\n", header.minAlloc, header.minAlloc * 16);
-    printf("    maxAlloc      %d (%d bytes)\n", header.maxAlloc, header.maxAlloc * 16);
-    printf("    initSS        0x%04x\n",        header.initSS);
-    printf("    initSP        0x%04x\n",        header.initSP);
-    printf("    checksum      0x%04x\n",        header.checksum);
-    printf("    initIP        0x%04x\n",        header.initIP);
-    printf("    initCS        0x%04x\n",        header.initCS);
-    printf("    relocOffset   0x%04x\n",        header.relocOffset);
-    printf("    overlayNo     %d\n",            header.overlayNo);
+    printf("    magic            '%c%c'\n",        header.magic & 0xff, header.magic >> 8);
+    printf("    partialPageSize  %d\n",            header.partialPageSize);
+    printf("    pageCnt          %d (%d bytes)\n", header.pageCnt, header.pageCnt * 512);
+    printf("    relocCnt         %d\n",            header.relocCnt);
+    printf("    headerSize       %d (%d bytes)\n", header.headerSize, header.headerSize * 16);
+    printf("    minAlloc         %d (%d bytes)\n", header.minAlloc, header.minAlloc * 16);
+    printf("    maxAlloc         %d (%d bytes)\n", header.maxAlloc, header.maxAlloc * 16);
+    printf("    initSS           0x%04x\n",        header.initSS);
+    printf("    initSP           0x%04x\n",        header.initSP);
+    printf("    checksum         0x%04x\n",        header.checksum);
+    printf("    initIP           0x%04x\n",        header.initIP);
+    printf("    initCS           0x%04x\n",        header.initCS);
+    printf("    relocOffset      0x%04x\n",        header.relocOffset);
+    printf("    overlayNo        %d\n",            header.overlayNo);
 
     // Load image into memory
-    int imageSize   = header.pageCnt * 512 + header.lastPageSize;
+    int imageSize   = header.pageCnt * 512 - header.headerSize * 16;
     int minAlloc    = header.minAlloc * 16;
     int loadAddress = startSegment * 16;
 
@@ -130,6 +130,7 @@ LoadExe::Result LoadExe::FromFile(uint16_t startSegment, const char *filename)
     ::close(fd);
 
     // Return entry point
+    result.imageSize = imageSize;
     result.initCS = header.initCS + startSegment;
     result.initIP = header.initIP;
     result.initSS = header.initSS + startSegment;

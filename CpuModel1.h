@@ -19,8 +19,7 @@ public:
     void SetReg8(Reg8 reg, uint8_t value) override;
 
     uint16_t GetReg16(Reg16 reg) override;
-    uint8_t  GetReg8(Reg8 reg) override;
-    uint8_t* GetMem() override;
+    uint8_t GetReg8(Reg8 reg) override;
 
     void Run(int nCycles) override;
 

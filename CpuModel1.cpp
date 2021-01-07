@@ -250,11 +250,6 @@ uint8_t Cpu::GetReg8(Reg8 reg)
     return 0;
 }
 
-uint8_t* Cpu::GetMem()
-{
-    return m_memory;
-}
-
 void Cpu::Run(int nCycles)
 {
     m_state        = 0;

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "CpuModel1.h"
 #include "LoadExe.h"
+#include "MsDos.h"
 
 int main(int argc, char **argv)
 {
@@ -47,12 +48,16 @@ int main(int argc, char **argv)
     strcpy(reinterpret_cast<char *>(psp + 0x81), wolfPath);
     strcpy(reinterpret_cast<char *>(env), "PATH=C:\\");
 
-    CpuInterface *cpu = new CpuModel1::Cpu(memory);
+    MsDos        *msDos = new MsDos(memory);
+    CpuInterface *cpu   = new CpuModel1::Cpu(memory);
 
     cpu->onSoftIrq =
-        [](CpuInterface *cpu, int irq)
+        [msDos](CpuInterface *cpu, int irq)
         {
-            printf("IRQ %02x!!\n", irq);
+            if (irq == 0x21)
+            {
+                msDos->Int21h(cpu);
+            }
         };
 
     cpu->SetReg16(CpuInterface::CS, result.initCS);
@@ -69,6 +74,7 @@ int main(int argc, char **argv)
     cpu->Run(64);
 
     delete cpu;
+    delete msDos;
     delete memory;
 
     return 0;

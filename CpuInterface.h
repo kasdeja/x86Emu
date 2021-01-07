@@ -21,8 +21,7 @@ public:
     virtual void SetReg8(Reg8 reg, uint8_t value) = 0;
 
     virtual uint16_t GetReg16(Reg16 reg) = 0;
-    virtual uint8_t  GetReg8(Reg8 reg) = 0;
-    virtual uint8_t* GetMem() = 0;
+    virtual uint8_t GetReg8(Reg8 reg) = 0;
 
     virtual void Run(int nCycles) = 0;
 

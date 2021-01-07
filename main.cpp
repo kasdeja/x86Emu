@@ -49,6 +49,12 @@ int main(int argc, char **argv)
 
     CpuInterface *cpu = new CpuModel1::Cpu(memory);
 
+    cpu->onSoftIrq =
+        [](CpuInterface *cpu, int irq)
+        {
+            printf("IRQ %02x!!\n", irq);
+        };
+
     cpu->SetReg16(CpuInterface::CS, result.initCS);
     cpu->SetReg16(CpuInterface::IP, result.initIP);
     cpu->SetReg16(CpuInterface::SS, result.initSS);

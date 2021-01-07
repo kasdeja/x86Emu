@@ -1,14 +1,36 @@
 #ifndef X86EMU_CPU_MODEL_1
 #define X86EMU_CPU_MODEL_1
 
-#include<inttypes.h>
+#include <inttypes.h>
+#include "CpuInterface.h"
 
 namespace CpuModel1
 {
 
-class Cpu
+class Cpu : public CpuInterface
 {
 public:
+    // constructor & destructor
+    Cpu(uint8_t* memory);
+    ~Cpu();
+
+    // public methods
+    void SetReg16(Reg16 reg, uint16_t value) override;
+    void SetReg8(Reg8 reg, uint8_t value) override;
+
+    uint16_t GetReg16(Reg16 reg) override;
+    uint8_t  GetReg8(Reg8 reg) override;
+    uint8_t* GetMem() override;
+
+    void Run(int nCycles) override;
+
+private:
+    enum State
+    {
+        InvalidOp       = 1,
+        SegmentOverride = 2
+    };
+
     enum Register
     {
         AX = 0x00,
@@ -20,11 +42,6 @@ public:
         SI = 0x06,
         DI = 0x07,
 
-        AH = 0x80,
-        CH = 0x81,
-        BH = 0x82,
-        DH = 0x83,
-
         ES = 0x08,
         CS = 0x09,
         SS = 0x0a,
@@ -32,21 +49,6 @@ public:
         IP = 0x0c,
 
         FLAGS = 0x0d
-    };
-
-    // constructor & destructor
-    Cpu(uint8_t* memory);
-    ~Cpu();
-
-    // public methods
-    void SetReg(Register reg, uint32_t value);
-    void Run(int nCycles);
-
-private:
-    enum State
-    {
-        InvalidOp       = 1,
-        SegmentOverride = 2
     };
 
     uint16_t m_register[16];

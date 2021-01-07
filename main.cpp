@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <algorithm>
 #include "CpuModel1.h"
 #include "LoadExe.h"
-
-using namespace CpuModel1;
 
 int main(int argc, char **argv)
 {
@@ -13,7 +12,7 @@ int main(int argc, char **argv)
     constexpr uint32_t kMaxDosRamSize = 1024 * 1024 + 65536;
 
     uint8_t* memory = new uint8_t[kMaxDosRamSize];
-    ::memset(memory, 0, kMaxDosRamSize);
+    std::fill(memory, memory + kMaxDosRamSize, 0);
 
     auto result = LoadExe(memory).FromFile(0x1010, "wolf/WOLF3D.EXE");
 
@@ -46,23 +45,25 @@ int main(int argc, char **argv)
 
     psp[0x80] = strlen(wolfPath);
     strcpy(reinterpret_cast<char *>(psp + 0x81), wolfPath);
-
     strcpy(reinterpret_cast<char *>(env), "PATH=C:\\");
 
-    Cpu cpu(memory);
+    CpuInterface *cpu = new CpuModel1::Cpu(memory);
 
-    cpu.SetReg(Cpu::Register::CS, result.initCS);
-    cpu.SetReg(Cpu::Register::IP, result.initIP);
-    cpu.SetReg(Cpu::Register::SS, result.initSS);
-    cpu.SetReg(Cpu::Register::SP, result.initSP);
+    cpu->SetReg16(CpuInterface::CS, result.initCS);
+    cpu->SetReg16(CpuInterface::IP, result.initIP);
+    cpu->SetReg16(CpuInterface::SS, result.initSS);
+    cpu->SetReg16(CpuInterface::SP, result.initSP);
 
-    cpu.SetReg(Cpu::Register::DS, 0x1000);
-    cpu.SetReg(Cpu::Register::ES, 0x1000);
+    cpu->SetReg16(CpuInterface::DS, 0x1000);
+    cpu->SetReg16(CpuInterface::ES, 0x1000);
 
-    cpu.SetReg(Cpu::Register::AX, 2);
+    cpu->SetReg16(CpuInterface::AX, 2);
 
     printf("Running...\n");
-    cpu.Run(64);
+    cpu->Run(64);
+
+    delete cpu;
+    delete memory;
 
     return 0;
 }

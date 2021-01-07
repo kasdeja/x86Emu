@@ -174,18 +174,85 @@ Cpu::~Cpu()
 }
 
 // public methods
-void Cpu::SetReg(Register reg, uint32_t value)
+void Cpu::SetReg16(Reg16 reg, uint16_t value)
 {
-    uint32_t idx = static_cast<uint32_t>(reg);
+    switch(reg)
+    {
+        case Reg16::AX: m_register[Register::AX] = value; break;
+        case Reg16::BX: m_register[Register::BX] = value; break;
+        case Reg16::CX: m_register[Register::CX] = value; break;
+        case Reg16::DX: m_register[Register::DX] = value; break;
+        case Reg16::SI: m_register[Register::SI] = value; break;
+        case Reg16::DI: m_register[Register::DI] = value; break;
+        case Reg16::BP: m_register[Register::BP] = value; break;
+        case Reg16::SP: m_register[Register::SP] = value; break;
+        case Reg16::CS: m_register[Register::CS] = value; break;
+        case Reg16::DS: m_register[Register::DS] = value; break;
+        case Reg16::ES: m_register[Register::ES] = value; break;
+        case Reg16::SS: m_register[Register::SS] = value; break;
+        case Reg16::IP: m_register[Register::IP] = value; break;
+    }
+}
 
-    if (idx & 0x80)
+void Cpu::SetReg8(Reg8 reg, uint8_t value)
+{
+    switch(reg)
     {
-        m_register[idx & 0x0f] = value;
+        case Reg8::AL: m_register[Register::AX] &= 0xff00; m_register[Register::AX] |= value; break;
+        case Reg8::BL: m_register[Register::BX] &= 0xff00; m_register[Register::BX] |= value; break;
+        case Reg8::CL: m_register[Register::CX] &= 0xff00; m_register[Register::CX] |= value; break;
+        case Reg8::DL: m_register[Register::DX] &= 0xff00; m_register[Register::DX] |= value; break;
+
+        case Reg8::AH: m_register[Register::AX] &= 0x00ff; m_register[Register::AX] |= value << 8; break;
+        case Reg8::BH: m_register[Register::BX] &= 0x00ff; m_register[Register::BX] |= value << 8; break;
+        case Reg8::CH: m_register[Register::CX] &= 0x00ff; m_register[Register::CX] |= value << 8; break;
+        case Reg8::DH: m_register[Register::DX] &= 0x00ff; m_register[Register::DX] |= value << 8; break;
     }
-    else
+}
+
+uint16_t Cpu::GetReg16(Reg16 reg)
+{
+    switch(reg)
     {
-        m_register[idx] = value;
+        case Reg16::AX: return m_register[Register::AX];
+        case Reg16::BX: return m_register[Register::BX];
+        case Reg16::CX: return m_register[Register::CX];
+        case Reg16::DX: return m_register[Register::DX];
+        case Reg16::SI: return m_register[Register::SI];
+        case Reg16::DI: return m_register[Register::DI];
+        case Reg16::BP: return m_register[Register::BP];
+        case Reg16::SP: return m_register[Register::SP];
+        case Reg16::CS: return m_register[Register::CS];
+        case Reg16::DS: return m_register[Register::DS];
+        case Reg16::ES: return m_register[Register::ES];
+        case Reg16::SS: return m_register[Register::SS];
+        case Reg16::IP: return m_register[Register::IP];
     }
+
+    return 0;
+}
+
+uint8_t Cpu::GetReg8(Reg8 reg)
+{
+    switch(reg)
+    {
+        case Reg8::AL: return m_register[Register::AX];
+        case Reg8::BL: return m_register[Register::BX];
+        case Reg8::CL: return m_register[Register::CX];
+        case Reg8::DL: return m_register[Register::DX];
+
+        case Reg8::AH: return m_register[Register::AX] >> 8;
+        case Reg8::BH: return m_register[Register::BX] >> 8;
+        case Reg8::CH: return m_register[Register::CX] >> 8;
+        case Reg8::DH: return m_register[Register::DX] >> 8;
+    }
+
+    return 0;
+}
+
+uint8_t* Cpu::GetMem()
+{
+    return m_memory;
 }
 
 void Cpu::Run(int nCycles)

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string>
 #include "CpuModel1.h"
+#include "Memory.h"
 
 #define DEBUG
 
@@ -12,7 +13,7 @@ static const char* s_regName16[]   = { "ax", "cx", "dx", "bx", "sp", "bp", "si",
 static const char* s_regName8l[]   = { "al", "cl", "dl", "bl" };
 static const char* s_regName8h[]   = { "ah", "ch", "dh", "bh" };
 static const char* s_sregName[]    = { "es", "cs", "ss", "ds" };
-static const char  s_hexDigits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+static const char  s_hexDigits[]   = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
 
 const char* Reg16ToStr(uint8_t reg)
 {
@@ -163,8 +164,8 @@ void DumpInstImpl(uint8_t *base, uint16_t segment, uint16_t offset, int length, 
 using namespace CpuModel1;
 
 // constructor & destructor
-Cpu::Cpu(uint8_t *memory)
-    : m_memory(memory)
+Cpu::Cpu(Memory& memory)
+    : m_memory(memory.GetMem())
 {
     std::fill(m_register, m_register + 16, 0);
 }

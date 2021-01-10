@@ -4,6 +4,9 @@
 #include <inttypes.h>
 #include "CpuInterface.h"
 
+// forward declarations
+class Memory;
+
 namespace CpuModel1
 {
 
@@ -11,7 +14,7 @@ class Cpu : public CpuInterface
 {
 public:
     // constructor & destructor
-    Cpu(uint8_t* memory);
+    Cpu(Memory& memory);
     ~Cpu();
 
     // public methods

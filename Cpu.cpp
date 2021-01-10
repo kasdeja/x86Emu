@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <algorithm>
 #include <string>
-#include "CpuModel1.h"
+#include "Cpu.h"
 #include "Memory.h"
 
 #define DEBUG
@@ -160,8 +160,6 @@ void DumpInstImpl(uint8_t *base, uint16_t segment, uint16_t offset, int length, 
 #define DumpMem(...)
 #define DumpInst(...)
 #endif
-
-using namespace CpuModel1;
 
 // constructor & destructor
 Cpu::Cpu(Memory& memory)

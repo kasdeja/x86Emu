@@ -3,16 +3,16 @@
 #include <inttypes.h>
 #include <algorithm>
 #include "Memory.h"
-#include "CpuModel1.h"
-#include "MsDos.h"
+#include "Cpu.h"
+#include "Dos.h"
 
 int main(int argc, char **argv)
 {
     printf("x86emu v0.1\n\n");
 
     Memory*       memory = new Memory(4096);
-    MsDos*        dos    = new MsDos(*memory);
-    CpuInterface* cpu    = new CpuModel1::Cpu(*memory);
+    Dos*          dos    = new Dos(*memory);
+    CpuInterface* cpu    = new Cpu(*memory);
 
     uint16_t envSeg   = 0x0ff0;
     uint16_t pspSeg   = 0x1000;

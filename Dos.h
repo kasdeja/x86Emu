@@ -1,5 +1,5 @@
-#ifndef X86EMU_MS_DOS
-#define X86EMU_MS_DOS
+#ifndef X86EMU_DOS
+#define X86EMU_DOS
 
 #include <inttypes.h>
 #include <string>
@@ -9,7 +9,7 @@
 class CpuInterface;
 class Memory;
 
-class MsDos
+class Dos
 {
 public:
     struct ImageInfo
@@ -23,8 +23,8 @@ public:
     };
 
     // constructor & destructor
-    MsDos(Memory& memory);
-    ~MsDos();
+    Dos(Memory& memory);
+    ~Dos();
 
     void Int21h(CpuInterface *cpu);
 
@@ -36,4 +36,4 @@ private:
     uint8_t* m_memory;
 };
 
-#endif /* X86EMU_MS_DOS */
+#endif /* X86EMU_DOS */

@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include "CpuInterface.h"
 #include "Memory.h"
-#include "MsDos.h"
+#include "Dos.h"
 
 // EXE header
 //
@@ -88,17 +88,17 @@ struct PspHeader
 } __attribute__((packed));
 
 // constructor & destructor
-MsDos::MsDos(Memory& memory)
+Dos::Dos(Memory& memory)
     : m_memory(memory.GetMem())
 {
 }
 
-MsDos::~MsDos()
+Dos::~Dos()
 {
 }
 
 // public methods
-void MsDos::Int21h(CpuInterface* cpu)
+void Dos::Int21h(CpuInterface* cpu)
 {
     uint8_t func = cpu->GetReg8(CpuInterface::AH);
 
@@ -140,7 +140,7 @@ void MsDos::Int21h(CpuInterface* cpu)
     }
 }
 
-uint16_t MsDos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
+uint16_t Dos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
 {
     char*    env = reinterpret_cast<char *>(m_memory + envSeg * 16);
     uint32_t envSize = 1;
@@ -157,7 +157,7 @@ uint16_t MsDos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVar
     return envSeg + (((envSize + 15) & (~15)) >> 4);
 }
 
-void MsDos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd)
+void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd)
 {
     PspHeader* psp = reinterpret_cast<PspHeader *>(m_memory + pspSeg * 16);
 
@@ -173,7 +173,7 @@ void MsDos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const s
     ::strcpy(psp->cmdTail, cmd.c_str());
 }
 
-MsDos::ImageInfo MsDos::LoadExeFromFile(uint16_t startSegment, const char *filename)
+Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
 {
     ImageInfo result;
 

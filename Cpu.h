@@ -1,14 +1,11 @@
-#ifndef X86EMU_CPU_MODEL_1
-#define X86EMU_CPU_MODEL_1
+#ifndef X86EMU_CPU
+#define X86EMU_CPU
 
 #include <inttypes.h>
 #include "CpuInterface.h"
 
 // forward declarations
 class Memory;
-
-namespace CpuModel1
-{
 
 class Cpu : public CpuInterface
 {
@@ -71,6 +68,4 @@ private:
     void      ExecuteInstruction();
 };
 
-} // CpuModel1
-
-#endif /* X86EMU_CPU_MODEL_1 */
+#endif /* X86EMU_CPU */

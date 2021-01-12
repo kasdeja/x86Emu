@@ -182,7 +182,7 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
 
     if (fd < 0)
     {
-        printf("MsDos::LoadExeFromFile() error: could not open file '%s'\n", filename);
+        printf("Dos::LoadExeFromFile() error: could not open file '%s'\n", filename);
         result.status = -1;
         return result;
     }
@@ -192,7 +192,7 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
 
     ::read(fd, &header, sizeof(ExeHeader));
 
-    printf("MsDos::LoadExeFromFile() opened '%s'...\n", filename);
+    printf("Dos::LoadExeFromFile() opened '%s'...\n", filename);
     printf("Header:\n");
     printf("    magic            '%c%c'\n",        header.magic & 0xff, header.magic >> 8);
     printf("    partialPageSize  %d\n",            header.partialPageSize);
@@ -223,7 +223,7 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
     ::lseek(fd, header.headerSize * 16, SEEK_SET);
     ::read(fd, m_memory + loadAddress, imageSize);
 
-    printf("MsDos::LoadExeFromFile() loaded %d bytes of program image\n", imageSize);
+    printf("Dos::LoadExeFromFile() loaded %d bytes of program image\n", imageSize);
 
     // Handle relocations
     RelocEntry* relocTbl = new RelocEntry[header.relocCnt];

@@ -16,11 +16,11 @@ public:
     ~Cpu();
 
     // public methods
-    void SetReg16(Reg16 reg, uint16_t value) override;
-    void SetReg8(Reg8 reg, uint8_t value) override;
+    void SetReg16(Register16 reg, uint16_t value) override;
+    void SetReg8(Register8 reg, uint8_t value) override;
 
-    uint16_t GetReg16(Reg16 reg) override;
-    uint8_t GetReg8(Reg8 reg) override;
+    uint16_t GetReg16(Register16 reg) override;
+    uint8_t GetReg8(Register8 reg) override;
 
     void Run(int nCycles) override;
 
@@ -53,40 +53,71 @@ private:
         FLAG = 0x0d
     };
 
-    enum Flag
+    enum FlagBit
     {
-        CF      =  0, //1,     // bit  0
-        Always1 =  1, //2,     // bit  1
-        PF      =  2, //4,     // bit  2
-        AF      =  4, //16,    // bit  4
-        ZF      =  6, //64,    // bit  6
-        SF      =  7, //128,   // bit  7
-        TF      =  8, //256,   // bit  8
-        IF      =  9, //512,   // bit  9
-        DF      = 10, //1024,  // bit 10
-        OF      = 11, //2048,  // bit 11
-        NT      = 14, //16384, // bit 14
-        Always0 = 15  //32768  // bit 15
+        CF_bit      = 0,     // 1
+        Always1_bit = 1,     // 2
+        PF_bit      = 2,     // 4
+        AF_bit      = 4,     // 16
+        ZF_bit      = 6,     // 64
+        SF_bit      = 7,     // 128
+        TF_bit      = 8,     // 256
+        IF_bit      = 9,     // 512
+        DF_bit      = 10,    // 1024
+        OF_bit      = 11,    // 2048
+        NT_bit      = 14,    // 16384
+        Always0_bit = 15     // 32768
+    };
+
+    enum FlagValue
+    {
+        CF      = 1,     // bit 0
+        Always1 = 2,     // bit 1
+        PF      = 4,     // bit 2
+        AF      = 16,    // bit 4
+        ZF      = 64,    // bit 6
+        SF      = 128,   // bit 7
+        TF      = 256,   // bit 8
+        IF      = 512,   // bit 9
+        DF      = 1024,  // bit 10
+        OF      = 2048,  // bit 11
+        NT      = 16384, // bit 14
+        Always0 = 32768  // bit 15
+    };
+
+    enum OpSize
+    {
+        OpSize8  = 0,
+        OpSize16 = 1
     };
 
     uint16_t    m_register[16];
+    uint8_t*    m_memory;
     std::size_t m_segmentBase;
     std::size_t m_stackSegmentBase;
-    uint8_t*    m_memory;
     uint32_t    m_state;
-    uint32_t    m_lastResult;
 
-    uint16_t* ModRmToReg(uint8_t modrm);
-    uint16_t* ModRmToSReg(uint8_t modrm);
+    uint16_t    m_op1;
+    uint16_t    m_op2;
+    uint16_t    m_opResult;
+    OpSize      m_opSize;
+
+    uint16_t* Reg16(uint8_t modrm);
+    uint8_t*  Reg8(uint8_t modrm);
+    uint16_t* SReg(uint8_t modrm);
+
     uint16_t  Disp16(uint8_t* ip);
     int8_t    Disp8(uint8_t* ip);
     uint16_t  Imm16(uint8_t* ip);
+
     uint16_t  Load16(std::size_t linearAddr);
     uint8_t   Load8(std::size_t linearAddr);
     void      Store16(std::size_t linearAddr, uint16_t value);
     void      Store8(std::size_t linearAddr, uint8_t value);
+
     void      Push16(uint16_t value);
     uint16_t  Pop16();
+
     void      RecalcFlags();
 
     uint16_t  ModRmLoad16(uint8_t *ip);
@@ -94,8 +125,11 @@ private:
     void      ModRmStore16(uint8_t *ip, uint16_t value);
     void      ModRmStore8(uint8_t *ip, uint8_t value);
 
-    template<typename F> void ModRmModifyOp16(uint8_t *ip, uint16_t regValue, F&& f);
-    template<typename F> void ModRmModifyOp8(uint8_t *ip, uint8_t regValue, F&& f);
+    template<typename F> void ModRmLoadOp16(uint8_t *ip, F&& f);
+    template<typename F> void ModRmLoadOp8(uint8_t *ip, F&& f);
+
+    template<typename F> void ModRmModifyOp16(uint8_t *ip, F&& f);
+    template<typename F> void ModRmModifyOp8(uint8_t *ip, F&& f);
 
     void      ExecuteInstruction();
 };

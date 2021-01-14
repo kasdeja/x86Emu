@@ -97,8 +97,8 @@ private:
     std::size_t m_stackSegmentBase;
     uint32_t    m_state;
 
-    uint16_t    m_op1;
-    uint16_t    m_op2;
+    int         m_op1;
+    int         m_op2;
     uint16_t    m_opResult;
     OpSize      m_opSize;
 
@@ -118,7 +118,13 @@ private:
     void      Push16(uint16_t value);
     uint16_t  Pop16();
 
-    void      RecalcFlags();
+    bool GetCF();
+    bool GetPF();
+    bool GetAF();
+    bool GetZF();
+    bool GetSF();
+    bool GetOF();
+    void RecalcFlags();
 
     uint16_t  ModRmLoad16(uint8_t *ip);
     uint8_t   ModRmLoad8(uint8_t *ip);

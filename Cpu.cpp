@@ -327,7 +327,7 @@ inline uint16_t Cpu::Disp16(uint8_t* ip)
 
 inline int8_t Cpu::Disp8(uint8_t* ip)
 {
-    return *reinterpret_cast<char *>(ip);
+    return *reinterpret_cast<int8_t *>(ip);
 }
 
 inline uint16_t Cpu::Imm16(uint8_t* ip)
@@ -368,14 +368,48 @@ inline uint16_t Cpu::Pop16()
     return value;
 }
 
+bool Cpu::GetCF()
+{
+    return false;
+}
+
+bool Cpu::GetPF()
+{
+    return false;
+}
+
+bool Cpu::GetAF()
+{
+    return false;
+}
+
+bool Cpu::GetZF()
+{
+    return m_opResult == 0;
+}
+
+bool Cpu::GetSF()
+{
+    return static_cast<uint32_t>(m_opResult) >> 31;
+}
+
+bool Cpu::GetOF()
+{
+    return false;
+}
+
 inline void Cpu::RecalcFlags()
 {
-//     m_register[Register::FLAG] &=
-//         ~((1 << Flag::CF) | (1 << Flag::PF) | (1 << Flag::CF) | (1 << Flag::ZF) | (1 << Flag::SF));
-//
-//     m_register[Register::FLAG] |=
-//         (((m_lastResult >> 16) & 1) << Flag::CF) | ((m_lastResult & 1) << Flag::PF) |
-//         ((m_lastResult == 0) ? (1 << Flag::ZF) : 0) | (((m_lastResult >> 15) & 1) << Flag::SF);
+    m_register[Register::FLAG] &=
+        ~(FlagValue::CF | FlagValue::PF | FlagValue::AF | FlagValue::ZF | FlagValue::SF | FlagValue::OF);
+
+    m_register[Register::FLAG] |=
+        (GetCF() << FlagBit::CF_bit) |
+        (GetPF() << FlagBit::PF_bit) |
+        (GetAF() << FlagBit::AF_bit) |
+        (GetZF() << FlagBit::ZF_bit) |
+        (GetSF() << FlagBit::SF_bit) |
+        (GetOF() << FlagBit::OF_bit);
 }
 
 inline uint16_t Cpu::ModRmLoad16(uint8_t *ip)
@@ -566,51 +600,53 @@ template<typename F>
 inline void Cpu::ModRmLoadOp16(uint8_t *ip, F&& f)  // op r16, r/m16
 {
     std::size_t ea;
-    uint16_t    *reg;
+    uint16_t    op1, op2, opResult;
     uint8_t     modRm = *ip++;
+    uint16_t    *reg;
 
     reg      = Reg16(modRm);
-    m_op1    = *reg;
+    op1      = *reg;
+    m_op1    = static_cast<short>(op1);
     m_opSize = OpSize16;
 
     switch(modRm)
     {
         // mod 00
-        ModRm_Case(0x00): m_op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x01): m_op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x02): m_op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x03): m_op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x04): m_op2 = Load16(m_segmentBase      + m_register[Register::SI]);                                         m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x05): m_op2 = Load16(m_segmentBase      + m_register[Register::DI]);                                         m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x06): m_op2 = Load16(m_segmentBase      + Disp16(ip));                                                       m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x07): m_op2 = Load16(m_segmentBase      + m_register[Register::BX]);                                         m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0x00): op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI]);              m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x01): op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI]);              m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x02): op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI]);              m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x03): op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI]);              m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x04): op2 = Load16(m_segmentBase      + m_register[Register::SI]);                                         m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x05): op2 = Load16(m_segmentBase      + m_register[Register::DI]);                                         m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x06): op2 = Load16(m_segmentBase      + Disp16(ip));                                                       m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x07): op2 = Load16(m_segmentBase      + m_register[Register::BX]);                                         m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
         // mod 01
-        ModRm_Case(0x40): m_op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x41): m_op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x42): m_op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x43): m_op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x44): m_op2 = Load16(m_segmentBase      + m_register[Register::SI]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x45): m_op2 = Load16(m_segmentBase      + m_register[Register::DI]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x46): m_op2 = Load16(m_segmentBase      + m_register[Register::BP]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x47): m_op2 = Load16(m_segmentBase      + m_register[Register::BX]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0x40): op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x41): op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x42): op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x43): op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x44): op2 = Load16(m_segmentBase      + m_register[Register::SI]                            + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x45): op2 = Load16(m_segmentBase      + m_register[Register::DI]                            + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x46): op2 = Load16(m_segmentBase      + m_register[Register::BP]                            + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x47): op2 = Load16(m_segmentBase      + m_register[Register::BX]                            + Disp8(ip));  m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
         // mod 10
-        ModRm_Case(0x80): m_op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x81): m_op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x82): m_op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x83): m_op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x84): m_op2 = Load16(m_segmentBase      + m_register[Register::SI]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x85): m_op2 = Load16(m_segmentBase      + m_register[Register::DI]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x86): m_op2 = Load16(m_segmentBase      + m_register[Register::BP]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x87): m_op2 = Load16(m_segmentBase      + m_register[Register::BX]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0x80): op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x81): op2 = Load16(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x82): op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x83): op2 = Load16(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x84): op2 = Load16(m_segmentBase      + m_register[Register::SI]                            + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x85): op2 = Load16(m_segmentBase      + m_register[Register::DI]                            + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x86): op2 = Load16(m_segmentBase      + m_register[Register::BP]                            + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x87): op2 = Load16(m_segmentBase      + m_register[Register::BX]                            + Disp16(ip)); m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
         // mod 11
-        ModRm_Case(0xc0): m_op2 = m_register[0]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc1): m_op2 = m_register[1]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc2): m_op2 = m_register[2]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc3): m_op2 = m_register[3]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc4): m_op2 = m_register[4]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc5): m_op2 = m_register[5]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc6): m_op2 = m_register[6]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc7): m_op2 = m_register[7]; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0xc0): op2 = m_register[0]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc1): op2 = m_register[1]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc2): op2 = m_register[2]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc3): op2 = m_register[3]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc4): op2 = m_register[4]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc5): op2 = m_register[5]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc6): op2 = m_register[6]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc7): op2 = m_register[7]; m_op2 = static_cast<short>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<short>(opResult); break;
     }
 }
 
@@ -618,51 +654,53 @@ template<typename F>
 inline void Cpu::ModRmLoadOp8(uint8_t *ip, F&& f)   // op r8, r/m8
 {
     std::size_t ea;
-    uint8_t    *reg;
+    uint8_t     op1, op2, opResult;
     uint8_t     modRm = *ip++;
+    uint8_t     *reg;
 
     reg      = Reg8(modRm);
-    m_op1    = *reg;
+    op1      = *reg;
+    m_op1    = static_cast<char>(op1);
     m_opSize = OpSize8;
 
     switch(modRm)
     {
         // mod 00
-        ModRm_Case(0x00): m_op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x01): m_op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x02): m_op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x03): m_op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI]);              m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x04): m_op2 = Load8(m_segmentBase      + m_register[Register::SI]);                                         m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x05): m_op2 = Load8(m_segmentBase      + m_register[Register::DI]);                                         m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x06): m_op2 = Load8(m_segmentBase      + Disp16(ip));                                                       m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x07): m_op2 = Load8(m_segmentBase      + m_register[Register::BX]);                                         m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0x00): op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI]);              m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x01): op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI]);              m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x02): op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI]);              m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x03): op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI]);              m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x04): op2 = Load8(m_segmentBase      + m_register[Register::SI]);                                         m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x05): op2 = Load8(m_segmentBase      + m_register[Register::DI]);                                         m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x06): op2 = Load8(m_segmentBase      + Disp16(ip));                                                       m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x07): op2 = Load8(m_segmentBase      + m_register[Register::BX]);                                         m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
         // mod 01
-        ModRm_Case(0x40): m_op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x41): m_op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x42): m_op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x43): m_op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x44): m_op2 = Load8(m_segmentBase      + m_register[Register::SI]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x45): m_op2 = Load8(m_segmentBase      + m_register[Register::DI]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x46): m_op2 = Load8(m_segmentBase      + m_register[Register::BP]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x47): m_op2 = Load8(m_segmentBase      + m_register[Register::BX]                            + Disp8(ip));  m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0x40): op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x41): op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x42): op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x43): op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x44): op2 = Load8(m_segmentBase      + m_register[Register::SI]                            + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x45): op2 = Load8(m_segmentBase      + m_register[Register::DI]                            + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x46): op2 = Load8(m_segmentBase      + m_register[Register::BP]                            + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x47): op2 = Load8(m_segmentBase      + m_register[Register::BX]                            + Disp8(ip));  m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
         // mod 10
-        ModRm_Case(0x80): m_op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x81): m_op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x82): m_op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x83): m_op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x84): m_op2 = Load8(m_segmentBase      + m_register[Register::SI]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x85): m_op2 = Load8(m_segmentBase      + m_register[Register::DI]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x86): m_op2 = Load8(m_segmentBase      + m_register[Register::BP]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0x87): m_op2 = Load8(m_segmentBase      + m_register[Register::BX]                            + Disp16(ip)); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0x80): op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x81): op2 = Load8(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x82): op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x83): op2 = Load8(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x84): op2 = Load8(m_segmentBase      + m_register[Register::SI]                            + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x85): op2 = Load8(m_segmentBase      + m_register[Register::DI]                            + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x86): op2 = Load8(m_segmentBase      + m_register[Register::BP]                            + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x87): op2 = Load8(m_segmentBase      + m_register[Register::BX]                            + Disp16(ip)); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
         // mod 11
-        ModRm_Case(0xc0): m_op2 = *reinterpret_cast<uint8_t *>(m_register[0]);       m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc1): m_op2 = *reinterpret_cast<uint8_t *>(m_register[1]);       m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc2): m_op2 = *reinterpret_cast<uint8_t *>(m_register[2]);       m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc3): m_op2 = *reinterpret_cast<uint8_t *>(m_register[3]);       m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc4): m_op2 = *(reinterpret_cast<uint8_t *>(m_register[0]) + 1); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc5): m_op2 = *(reinterpret_cast<uint8_t *>(m_register[1]) + 1); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc6): m_op2 = *(reinterpret_cast<uint8_t *>(m_register[2]) + 1); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc7): m_op2 = *(reinterpret_cast<uint8_t *>(m_register[3]) + 1); m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0xc0): op2 = *reinterpret_cast<uint8_t *>(m_register[0]);       m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc1): op2 = *reinterpret_cast<uint8_t *>(m_register[1]);       m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc2): op2 = *reinterpret_cast<uint8_t *>(m_register[2]);       m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc3): op2 = *reinterpret_cast<uint8_t *>(m_register[3]);       m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc4): op2 = *(reinterpret_cast<uint8_t *>(m_register[0]) + 1); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc5): op2 = *(reinterpret_cast<uint8_t *>(m_register[1]) + 1); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc6): op2 = *(reinterpret_cast<uint8_t *>(m_register[2]) + 1); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc7): op2 = *(reinterpret_cast<uint8_t *>(m_register[3]) + 1); m_op2 = static_cast<char>(op2); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
     }
 }
 
@@ -670,49 +708,51 @@ template<typename F>
 inline void Cpu::ModRmModifyOp16(uint8_t *ip, F&& f)    // op r/m16, r16
 {
     std::size_t ea;
+    uint16_t    op1, op2, opResult;
     uint8_t     modRm = *ip++;
 
-    m_op2    = *Reg16(modRm);
+    op2      = *Reg16(modRm);
+    m_op2    = static_cast<short>(op2);
     m_opSize = OpSize16;
 
     switch(modRm)
     {
         // mod 00
-        ModRm_Case(0x00): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI];              m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x01): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI];              m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x02): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI];              m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x03): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI];              m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x04): ea = m_segmentBase      + m_register[Register::SI];                                         m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x05): ea = m_segmentBase      + m_register[Register::DI];                                         m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x06): ea = m_segmentBase      + Disp16(ip);                                                       m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x07): ea = m_segmentBase      + m_register[Register::BX];                                         m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
+        ModRm_Case(0x00): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI];              op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x01): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI];              op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x02): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI];              op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x03): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI];              op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x04): ea = m_segmentBase      + m_register[Register::SI];                                         op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x05): ea = m_segmentBase      + m_register[Register::DI];                                         op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x06): ea = m_segmentBase      + Disp16(ip);                                                       op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x07): ea = m_segmentBase      + m_register[Register::BX];                                         op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
         // mod 01
-        ModRm_Case(0x40): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x41): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x42): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x43): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x44): ea = m_segmentBase      + m_register[Register::SI]                            + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x45): ea = m_segmentBase      + m_register[Register::DI]                            + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x46): ea = m_segmentBase      + m_register[Register::BP]                            + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x47): ea = m_segmentBase      + m_register[Register::BX]                            + Disp8(ip);  m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
+        ModRm_Case(0x40): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x41): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x42): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x43): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x44): ea = m_segmentBase      + m_register[Register::SI]                            + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x45): ea = m_segmentBase      + m_register[Register::DI]                            + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x46): ea = m_segmentBase      + m_register[Register::BP]                            + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x47): ea = m_segmentBase      + m_register[Register::BX]                            + Disp8(ip);  op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
         // mod 10
-        ModRm_Case(0x80): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x81): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x82): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x83): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x84): ea = m_segmentBase      + m_register[Register::SI]                            + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x85): ea = m_segmentBase      + m_register[Register::DI]                            + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x86): ea = m_segmentBase      + m_register[Register::BP]                            + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
-        ModRm_Case(0x87): ea = m_segmentBase      + m_register[Register::BX]                            + Disp16(ip); m_op1 = Load16(ea); m_opResult = f(m_op1, m_op2); Store16(ea, m_opResult); break;
+        ModRm_Case(0x80): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x81): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x82): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x83): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x84): ea = m_segmentBase      + m_register[Register::SI]                            + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x85): ea = m_segmentBase      + m_register[Register::DI]                            + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x86): ea = m_segmentBase      + m_register[Register::BP]                            + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0x87): ea = m_segmentBase      + m_register[Register::BX]                            + Disp16(ip); op1 = Load16(ea); m_op1 = static_cast<short>(op1); opResult = f(op1, op2); Store16(ea, opResult); m_opResult = static_cast<short>(opResult); break;
         // mod 11
-        ModRm_Case(0xc0): m_op1 = m_register[0]; m_opResult = f(m_op1, m_op2); m_register[0] = m_opResult; break;
-        ModRm_Case(0xc1): m_op1 = m_register[1]; m_opResult = f(m_op1, m_op2); m_register[1] = m_opResult; break;
-        ModRm_Case(0xc2): m_op1 = m_register[2]; m_opResult = f(m_op1, m_op2); m_register[2] = m_opResult; break;
-        ModRm_Case(0xc3): m_op1 = m_register[3]; m_opResult = f(m_op1, m_op2); m_register[3] = m_opResult; break;
-        ModRm_Case(0xc4): m_op1 = m_register[4]; m_opResult = f(m_op1, m_op2); m_register[4] = m_opResult; break;
-        ModRm_Case(0xc5): m_op1 = m_register[5]; m_opResult = f(m_op1, m_op2); m_register[5] = m_opResult; break;
-        ModRm_Case(0xc6): m_op1 = m_register[6]; m_opResult = f(m_op1, m_op2); m_register[6] = m_opResult; break;
-        ModRm_Case(0xc7): m_op1 = m_register[7]; m_opResult = f(m_op1, m_op2); m_register[7] = m_opResult; break;
+        ModRm_Case(0xc0): op1 = m_register[0]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[0] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc1): op1 = m_register[1]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[1] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc2): op1 = m_register[2]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[2] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc3): op1 = m_register[3]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[3] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc4): op1 = m_register[4]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[4] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc5): op1 = m_register[5]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[5] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc6): op1 = m_register[6]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[6] = opResult; m_opResult = static_cast<short>(opResult); break;
+        ModRm_Case(0xc7): op1 = m_register[7]; m_op1 = static_cast<short>(op1); opResult = f(op1, op2); m_register[7] = opResult; m_opResult = static_cast<short>(opResult); break;
     }
 }
 
@@ -720,50 +760,52 @@ template<typename F>
 inline void Cpu::ModRmModifyOp8(uint8_t *ip, F&& f)     // op r/m8, r8
 {
     std::size_t ea;
+    uint8_t     op1, op2, opResult;
     uint8_t     modRm = *ip++;
     uint8_t     *reg;
 
-    m_op2    = *Reg8(modRm);
+    op2      = *Reg8(modRm);
+    m_op2    = static_cast<char>(op2);
     m_opSize = OpSize8;
 
     switch(modRm)
     {
         // mod 00
-        ModRm_Case(0x00): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI];              m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x01): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI];              m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x02): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI];              m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x03): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI];              m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x04): ea = m_segmentBase      + m_register[Register::SI];                                         m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x05): ea = m_segmentBase      + m_register[Register::DI];                                         m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x06): ea = m_segmentBase      + Disp16(ip);                                                       m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x07): ea = m_segmentBase      + m_register[Register::BX];                                         m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
+        ModRm_Case(0x00): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI];              op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x01): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI];              op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x02): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI];              op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x03): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI];              op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x04): ea = m_segmentBase      + m_register[Register::SI];                                         op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x05): ea = m_segmentBase      + m_register[Register::DI];                                         op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x06): ea = m_segmentBase      + Disp16(ip);                                                       op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x07): ea = m_segmentBase      + m_register[Register::BX];                                         op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
         // mod 01
-        ModRm_Case(0x40): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x41): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x42): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x43): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x44): ea = m_segmentBase      + m_register[Register::SI]                            + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x45): ea = m_segmentBase      + m_register[Register::DI]                            + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x46): ea = m_segmentBase      + m_register[Register::BP]                            + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x47): ea = m_segmentBase      + m_register[Register::BX]                            + Disp8(ip);  m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
+        ModRm_Case(0x40): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x41): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x42): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x43): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x44): ea = m_segmentBase      + m_register[Register::SI]                            + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x45): ea = m_segmentBase      + m_register[Register::DI]                            + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x46): ea = m_segmentBase      + m_register[Register::BP]                            + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x47): ea = m_segmentBase      + m_register[Register::BX]                            + Disp8(ip);  op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
         // mod 10
-        ModRm_Case(0x80): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x81): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x82): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x83): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x84): ea = m_segmentBase      + m_register[Register::SI]                            + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x85): ea = m_segmentBase      + m_register[Register::DI]                            + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x86): ea = m_segmentBase      + m_register[Register::BP]                            + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
-        ModRm_Case(0x87): ea = m_segmentBase      + m_register[Register::BX]                            + Disp16(ip); m_op1 = Load8(ea); m_opResult = f(m_op1, m_op2); Store8(ea, m_opResult); break;
+        ModRm_Case(0x80): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x81): ea = m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x82): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x83): ea = m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x84): ea = m_segmentBase      + m_register[Register::SI]                            + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x85): ea = m_segmentBase      + m_register[Register::DI]                            + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x86): ea = m_segmentBase      + m_register[Register::BP]                            + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0x87): ea = m_segmentBase      + m_register[Register::BX]                            + Disp16(ip); op1 = Load8(ea); m_op1 = static_cast<char>(op1); opResult = f(op1, op2); Store8(ea, opResult); m_opResult = static_cast<char>(opResult); break;
         // mod 11
-        ModRm_Case(0xc0): reg = reinterpret_cast<uint8_t *>(m_register[0]);     m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc1): reg = reinterpret_cast<uint8_t *>(m_register[1]);     m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc2): reg = reinterpret_cast<uint8_t *>(m_register[2]);     m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc3): reg = reinterpret_cast<uint8_t *>(m_register[3]);     m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc4): reg = reinterpret_cast<uint8_t *>(m_register[0]) + 1; m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc5): reg = reinterpret_cast<uint8_t *>(m_register[1]) + 1; m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc6): reg = reinterpret_cast<uint8_t *>(m_register[2]) + 1; m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
-        ModRm_Case(0xc7): reg = reinterpret_cast<uint8_t *>(m_register[3]) + 1; m_op1 = *reg; m_opResult = f(m_op1, m_op2); *reg = m_opResult; break;
+        ModRm_Case(0xc0): reg = reinterpret_cast<uint8_t *>(m_register[0]);     op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc1): reg = reinterpret_cast<uint8_t *>(m_register[1]);     op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc2): reg = reinterpret_cast<uint8_t *>(m_register[2]);     op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc3): reg = reinterpret_cast<uint8_t *>(m_register[3]);     op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc4): reg = reinterpret_cast<uint8_t *>(m_register[0]) + 1; op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc5): reg = reinterpret_cast<uint8_t *>(m_register[1]) + 1; op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc6): reg = reinterpret_cast<uint8_t *>(m_register[2]) + 1; op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
+        ModRm_Case(0xc7): reg = reinterpret_cast<uint8_t *>(m_register[3]) + 1; op1 = *reg; m_op1 = static_cast<char>(op1); opResult = f(op1, op2); *reg = opResult; m_opResult = static_cast<char>(opResult); break;
     }
 }
 
@@ -916,6 +958,134 @@ void Cpu::ExecuteInstruction()
                 m_register[Register::IP] += 1;
 
                 DumpInst(1, "pop %s", Reg16ToStr(opcode - 0x58));
+                break;
+
+            case 0x70: // jo rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jo %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetOF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x71: // jno rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jno %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetOF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x72: // jb rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jb %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetCF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x73: // jnb rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jnb %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetCF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x74: // je rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "je %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetZF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x75: // jne rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jne %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetZF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x76: // jna rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jna %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetCF() || GetZF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x77: // ja rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "ja %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetCF() && !GetZF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x78: // js rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "js %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetSF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x79: // jns rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jns %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetSF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x7a: // jp rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jp %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetPF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x7b: // jnp rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jnp %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetPF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x7c: // jl rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jl %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetSF() != GetOF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x7d: // jnl rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jnl %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetSF() == GetOF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x7e: // jle rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jle %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (GetZF() || GetSF() != GetOF())
+                    m_register[Register::IP] += offset;
+                break;
+
+            case 0x7f: // jg rel8
+                offset = Disp8(ip);
+                m_register[Register::IP] += 2;
+                DumpInst(2, "jg %s0x%04x", (offset & 0x8000) ? "-" : "", offset & 0x7fff);
+                if (!GetZF() && GetSF() == GetOF())
+                    m_register[Register::IP] += offset;
                 break;
 
             case 0x89: // mov r/m16, r16

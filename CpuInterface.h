@@ -4,6 +4,9 @@
 #include <inttypes.h>
 #include <functional>
 
+// forward declarations
+class Memory;
+
 class CpuInterface
 {
 public:
@@ -22,6 +25,8 @@ public:
 
     virtual uint16_t GetReg16(Register16 reg) = 0;
     virtual uint8_t GetReg8(Register8 reg) = 0;
+
+    virtual Memory& GetMem() = 0;
 
     virtual void Run(int nCycles) = 0;
 

@@ -22,11 +22,11 @@ public:
     uint16_t GetReg16(Register16 reg) override;
     uint8_t GetReg8(Register8 reg) override;
 
+    Memory& GetMem() override;
+
     void Run(int nCycles) override;
 
 private:
-    static uint16_t s_modRmInstLen[256];
-
     enum State
     {
         InvalidOp       = 1,
@@ -91,6 +91,8 @@ private:
         OpSize16 = 1
     };
 
+    static uint16_t s_modRmInstLen[256];
+
     uint16_t    m_register[16];
     uint8_t*    m_memory;
     std::size_t m_segmentBase;
@@ -101,6 +103,8 @@ private:
     int         m_op2;
     uint16_t    m_opResult;
     OpSize      m_opSize;
+
+    Memory&     m_rMemory;
 
     uint16_t* Reg16(uint8_t modrm);
     uint8_t*  Reg8(uint8_t modrm);

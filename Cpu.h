@@ -85,10 +85,12 @@ private:
         Always0 = 32768  // bit 15
     };
 
-    enum OpSize
+    enum AuxBit
     {
-        OpSize8  = 0,
-        OpSize16 = 1
+        AuxCF_bit  = 31,
+        AuxPO_bit  = 30,
+        AuxPDB_bit = 8,
+        AuxAF_bit  = 3,
     };
 
     static uint16_t s_modRmInstLen[256];
@@ -99,10 +101,8 @@ private:
     std::size_t m_stackSegmentBase;
     uint32_t    m_state;
 
-    int         m_op1;
-    int         m_op2;
-    uint16_t    m_opResult;
-    OpSize      m_opSize;
+    int         m_result;
+    int         m_auxbits;
 
     Memory&     m_rMemory;
 

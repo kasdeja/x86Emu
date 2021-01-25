@@ -438,9 +438,56 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0xc4:
+            instr = "les " + ModRmReg16(ip) + ", [" + Disp16(ip + 1) + "]";
+            length = 4;
+            break;
+
         case 0xcd:
             instr = "int " + Imm8(ip);
             length = 2;
+            break;
+
+        case 0xf2:
+            instr = "repne ";
+            switch(*ip)
+            {
+                case 0xa6: instr += "cmpsb"; break;
+                case 0xa7: instr += "cmpsw"; break;
+                case 0xae: instr += "scasb"; break;
+                case 0xaf: instr += "scasw"; break;
+            }
+            length = 2;
+            break;
+
+        case 0xf8:
+            instr = "clc";
+            length = 1;
+            break;
+
+        case 0xf9:
+            instr = "stc";
+            length = 1;
+            break;
+
+        case 0xfa:
+            instr = "cli";
+            length = 1;
+            break;
+
+        case 0xfb:
+            instr = "sti";
+            length = 1;
+            break;
+
+        case 0xfc:
+            instr = "cld";
+            length = 1;
+            break;
+
+        case 0xfd:
+            instr = "std";
+            length = 1;
             break;
 
         default:

@@ -32,7 +32,7 @@ Cpu::Cpu(Memory& memory)
     , m_rMemory(memory)
 {
     std::fill(m_register, m_register + 16, 0);
-    m_register[Register::FLAG] = FlagValue::IF | FlagValue::Always1;
+    m_register[Register::FLAG] = Flag::IF_mask | Flag::Always1_mask;
 
     m_result  = 0;
     m_auxbits = 0;
@@ -203,54 +203,125 @@ inline uint16_t Cpu::Pop16()
     return value;
 }
 
-bool Cpu::GetCF()
+inline bool Cpu::GetCF()
 {
-    return static_cast<uint32_t>(m_auxbits) >> AuxCF_bit;
+    return static_cast<uint32_t>(m_auxbits) >> Aux::CF_bit;
 }
 
-bool Cpu::GetPF()
+inline bool Cpu::GetPF()
 {
     int tmp;
 
     tmp = m_result & 0xff;
-    tmp ^= (m_auxbits >> AuxPDB_bit) & 0xff;
+    tmp ^= (m_auxbits >> Aux::PDB_bit) & 0xff;
     tmp = (tmp & (tmp >> 4)) & 0x0f;
 
     return (0x9669 >> tmp) & 1;
 }
 
-bool Cpu::GetAF()
+inline bool Cpu::GetAF()
 {
-    return false;
+    return (m_auxbits >> Aux::AF_bit) & 1;
 }
 
-bool Cpu::GetZF()
+inline bool Cpu::GetZF()
 {
     return m_result == 0;
 }
 
-bool Cpu::GetSF()
+inline bool Cpu::GetSF()
 {
-    return (static_cast<uint32_t>(m_result) >> 31) ^ (m_auxbits & 1);
+    return (static_cast<uint32_t>(m_result) >> 31) ^ (m_auxbits & Aux::SFD_mask);
 }
 
-bool Cpu::GetOF()
+inline bool Cpu::GetOF()
 {
-    return false;
+    return ((m_auxbits + (1 << Aux::PO_bit)) >> Aux::CF_bit) & 1;
 }
 
-inline void Cpu::RecalcFlags()
+inline void Cpu::SetOF_CF(bool of, bool cf)
+{
+    int po = of ^ cf;
+
+    m_auxbits &= ~(Aux::PO_mask | Aux::CF_mask);
+    m_auxbits |= (cf << Aux::CF_bit) | (po << Aux::PO_bit);
+}
+
+inline void Cpu::SetCF(bool val)
+{
+    SetOF_CF(GetOF(), val);
+}
+
+inline void Cpu::SetPF(bool val)
+{
+    int pdb = (m_result & 0xff) ^ (!val);
+
+    m_auxbits &= ~Aux::PDB_mask;
+    m_auxbits |= pdb << Aux::PDB_bit;
+}
+
+inline void Cpu::SetAF(bool val)
+{
+    m_auxbits &= ~Aux::AF_mask;
+    m_auxbits |= val << Aux::AF_bit;
+}
+
+inline void Cpu::SetZF(bool val)
+{
+    if (val)
+    {
+        m_auxbits ^= (m_result >> 31) & 1;
+        m_auxbits ^= (m_result & 0xff) << Aux::PDB_bit;
+        m_result = 0;
+    }
+    else
+    {
+        m_result |= 1 << 8;
+    }
+}
+
+inline void Cpu::SetSF(bool val)
+{
+    m_auxbits ^= GetSF() ^ val;
+}
+
+inline void Cpu::SetOF(bool val)
+{
+    SetOF_CF(val, GetCF());
+}
+
+void Cpu::RecalcFlags()
 {
     m_register[Register::FLAG] &=
-        ~(FlagValue::CF | FlagValue::PF | FlagValue::AF | FlagValue::ZF | FlagValue::SF | FlagValue::OF);
+        ~(Flag::CF_mask | Flag::PF_mask | Flag::AF_mask | Flag::ZF_mask | Flag::SF_mask | Flag::OF_mask);
 
     m_register[Register::FLAG] |=
-        (GetCF() << FlagBit::CF_bit) |
-        (GetPF() << FlagBit::PF_bit) |
-        (GetAF() << FlagBit::AF_bit) |
-        (GetZF() << FlagBit::ZF_bit) |
-        (GetSF() << FlagBit::SF_bit) |
-        (GetOF() << FlagBit::OF_bit);
+        (GetCF() << Flag::CF_bit) |
+        (GetPF() << Flag::PF_bit) |
+        (GetAF() << Flag::AF_bit) |
+        (GetZF() << Flag::ZF_bit) |
+        (GetSF() << Flag::SF_bit) |
+        (GetOF() << Flag::OF_bit);
+}
+
+void Cpu::RestoreLazyFlags()
+{
+    bool cf = (m_register[Register::FLAG] >> Flag::CF_bit) & 1;
+    bool pf = (m_register[Register::FLAG] >> Flag::PF_bit) & 1;
+    bool af = (m_register[Register::FLAG] >> Flag::AF_bit) & 1;
+    bool zf = (m_register[Register::FLAG] >> Flag::ZF_bit) & 1;
+    bool sf = (m_register[Register::FLAG] >> Flag::SF_bit) & 1;
+    bool of = (m_register[Register::FLAG] >> Flag::OF_bit) & 1;
+
+    bool po = of ^ cf;
+
+    m_result = (!zf) << 8;
+    m_auxbits =
+        (cf << Aux::CF_bit) |
+        (po << Aux::PO_bit) |
+        ((!pf) << Aux::PDB_bit) |
+        (af << Aux::AF_bit) |
+        sf;
 }
 
 inline uint16_t Cpu::ModRmLoad16(uint8_t *ip)
@@ -681,6 +752,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint8_t result = op1 | op2;
                     m_result = static_cast<char>(result);
+                    m_auxbits = 0;
                     return result;
 
                 });
@@ -693,6 +765,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint16_t result = op1 | op2;
                     m_result = static_cast<short>(result);
+                    m_auxbits = 0;
                     return result;
 
                 });
@@ -705,6 +778,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint8_t result = op1 | op2;
                     m_result = static_cast<char>(result);
+                    m_auxbits = 0;
                     return result;
 
                 });
@@ -717,6 +791,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint16_t result = op1 | op2;
                     m_result = static_cast<short>(result);
+                    m_auxbits = 0;
                     return result;
 
                 });
@@ -763,6 +838,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint8_t result = op1 ^ op2;
                     m_result = static_cast<char>(result);
+                    m_auxbits = 0;
                     return result;
                 });
             m_register[Register::IP] += s_modRmInstLen[*ip];
@@ -774,6 +850,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint16_t result = op1 ^ op2;
                     m_result = static_cast<short>(result);
+                    m_auxbits = 0;
                     return result;
                 });
             m_register[Register::IP] += s_modRmInstLen[*ip];
@@ -785,6 +862,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint8_t result = op1 ^ op2;
                     m_result = static_cast<char>(result);
+                    m_auxbits = 0;
                     return result;
                 });
             m_register[Register::IP] += s_modRmInstLen[*ip];
@@ -796,6 +874,7 @@ void Cpu::ExecuteInstruction()
                 {
                     uint16_t result = op1 ^ op2;
                     m_result = static_cast<short>(result);
+                    m_auxbits = 0;
                     return result;
                 });
             m_register[Register::IP] += s_modRmInstLen[*ip];
@@ -966,8 +1045,9 @@ void Cpu::ExecuteInstruction()
             break;
 
         case 0x9d: // popf
-            m_register[Register::FLAG] = (Pop16() & ~FlagValue::Always0) | FlagValue::Always1;
+            m_register[Register::FLAG] = (Pop16() & ~Flag::Always0_mask) | Flag::Always1_mask;
             m_register[Register::IP] += 1;
+            RestoreLazyFlags();
             break;
 
         case 0xa3: // mov moffs16, ax
@@ -1017,22 +1097,22 @@ void Cpu::ExecuteInstruction()
             break;
 
         case 0xfa:
-            m_register[Register::FLAG] &= ~FlagValue::IF;
+            m_register[Register::FLAG] &= ~Flag::IF_mask;
             m_register[Register::IP] += 1;
             break;
 
         case 0xfb:
-            m_register[Register::FLAG] |= FlagValue::IF;
+            m_register[Register::FLAG] |= Flag::IF_mask;
             m_register[Register::IP] += 1;
             break;
 
         case 0xfc:
-            m_register[Register::FLAG] &= ~FlagValue::DF;
+            m_register[Register::FLAG] &= ~Flag::DF_mask;
             m_register[Register::IP] += 1;
             break;
 
         case 0xfd:
-            m_register[Register::FLAG] |= FlagValue::DF;
+            m_register[Register::FLAG] |= Flag::DF_mask;
             m_register[Register::IP] += 1;
             break;
 

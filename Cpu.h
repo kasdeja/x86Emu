@@ -53,44 +53,59 @@ private:
         FLAG = 0x0d
     };
 
-    enum FlagBit
+    struct Flag
     {
-        CF_bit      = 0,     // 1
-        Always1_bit = 1,     // 2
-        PF_bit      = 2,     // 4
-        AF_bit      = 4,     // 16
-        ZF_bit      = 6,     // 64
-        SF_bit      = 7,     // 128
-        TF_bit      = 8,     // 256
-        IF_bit      = 9,     // 512
-        DF_bit      = 10,    // 1024
-        OF_bit      = 11,    // 2048
-        NT_bit      = 14,    // 16384
-        Always0_bit = 15     // 32768
+        enum Bit
+        {
+            CF_bit      = 0,     // 1
+            Always1_bit = 1,     // 2
+            PF_bit      = 2,     // 4
+            AF_bit      = 4,     // 16
+            ZF_bit      = 6,     // 64
+            SF_bit      = 7,     // 128
+            TF_bit      = 8,     // 256
+            IF_bit      = 9,     // 512
+            DF_bit      = 10,    // 1024
+            OF_bit      = 11,    // 2048
+            NT_bit      = 14,    // 16384
+            Always0_bit = 15     // 32768
+        };
+
+        enum Mask
+        {
+            CF_mask      = 1,     // bit 0
+            Always1_mask = 2,     // bit 1
+            PF_mask      = 4,     // bit 2
+            AF_mask      = 16,    // bit 4
+            ZF_mask      = 64,    // bit 6
+            SF_mask      = 128,   // bit 7
+            TF_mask      = 256,   // bit 8
+            IF_mask      = 512,   // bit 9
+            DF_mask      = 1024,  // bit 10
+            OF_mask      = 2048,  // bit 11
+            NT_mask      = 16384, // bit 14
+            Always0_mask = 32768  // bit 15
+        };
     };
 
-    enum FlagValue
+    struct Aux
     {
-        CF      = 1,     // bit 0
-        Always1 = 2,     // bit 1
-        PF      = 4,     // bit 2
-        AF      = 16,    // bit 4
-        ZF      = 64,    // bit 6
-        SF      = 128,   // bit 7
-        TF      = 256,   // bit 8
-        IF      = 512,   // bit 9
-        DF      = 1024,  // bit 10
-        OF      = 2048,  // bit 11
-        NT      = 16384, // bit 14
-        Always0 = 32768  // bit 15
-    };
+        enum Bit
+        {
+            CF_bit  = 31,
+            PO_bit  = 30,
+            PDB_bit = 8,
+            AF_bit  = 3
+        };
 
-    enum AuxBit
-    {
-        AuxCF_bit  = 31,
-        AuxPO_bit  = 30,
-        AuxPDB_bit = 8,
-        AuxAF_bit  = 3,
+        enum Mask
+        {
+            CF_mask  = 0x80000000,
+            PO_mask  = 0x40000000,
+            PDB_mask = 0x0000ff00,
+            AF_mask  = 0x00000008,
+            SFD_mask = 0x00000001
+        };
     };
 
     static uint16_t s_modRmInstLen[256];
@@ -128,7 +143,17 @@ private:
     bool GetZF();
     bool GetSF();
     bool GetOF();
+
+    void SetOF_CF(bool of, bool cf);
+    void SetCF(bool val);
+    void SetPF(bool val);
+    void SetAF(bool val);
+    void SetZF(bool val);
+    void SetSF(bool val);
+    void SetOF(bool val);
+
     void RecalcFlags();
+    void RestoreLazyFlags();
 
     uint16_t  ModRmLoad16(uint8_t *ip);
     uint8_t   ModRmLoad8(uint8_t *ip);

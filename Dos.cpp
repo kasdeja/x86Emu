@@ -143,7 +143,7 @@ void Dos::Int21h(CpuInterface* cpu)
 uint16_t Dos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
 {
     char*    env = reinterpret_cast<char *>(m_memory + envSeg * 16);
-    uint32_t envSize = 1;
+    uint32_t envSize = 0;
 
     for(auto const& var : envVars)
     {
@@ -151,10 +151,12 @@ uint16_t Dos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
 
         ::strcpy(env, var.c_str());
         env[len + 2] = 0;
+
+        env     += len + 1;
         envSize += len + 1;
     }
 
-    return envSeg + (((envSize + 15) & (~15)) >> 4);
+    return envSeg + (((envSize + 16) & (~15)) >> 4);
 }
 
 void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd)

@@ -152,6 +152,11 @@ private:
     void SetSF(bool val);
     void SetOF(bool val);
 
+    void SetSubFlags16(uint16_t op1, uint16_t op2, uint16_t result);
+    void SetSubFlags8(uint8_t op1, uint8_t op2, uint8_t result);
+    void SetAddFlags16(uint16_t op1, uint16_t op2, uint16_t result);
+    void SetAddFlags8(uint8_t op1, uint8_t op2, uint8_t result);
+
     void RecalcFlags();
     void RestoreLazyFlags();
 
@@ -166,7 +171,8 @@ private:
     template<typename F> void ModRmModifyOp16(uint8_t *ip, F&& f);
     template<typename F> void ModRmModifyOp8(uint8_t *ip, F&& f);
 
-    void      ExecuteInstruction();
+    void HandleREPNE(uint8_t opcode);
+    void ExecuteInstruction();
 };
 
 #endif /* X86EMU_CPU */

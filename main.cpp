@@ -23,6 +23,7 @@ int main(int argc, char **argv)
     uint16_t nextSeg = imageSeg + (imageInfo.imageSize >> 4);
 
     dos->BuildEnv(envSeg, { "PATH=C:\\" });
+    //dos->BuildEnv(envSeg, { "PATH=C:\\", "PROMPT=$P$G" });
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "C:\\WOLF\\WOLF3D.EXE");
 
     cpu->onSoftIrq =

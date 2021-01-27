@@ -280,8 +280,40 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0x38: // cmp r/m8, r8
+            instr  = "cmp " + ModRm(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x39: // cmp r/m16, r16
+            instr  = "cmp " + ModRm(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x3a: // cmp r8, r/m8
+            instr  = "cmp " + ModRmReg8(ip) + ", " + ModRm(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x3b: // cmp r16, r/m16
+            instr  = "cmp " + ModRmReg16(ip) + ", " + ModRm(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
         case 0x3e: // prefix - DS override
             instr  = "DS:";
+            length = 1;
+            break;
+
+        case 0x40: case 0x41: case 0x42: case 0x43:
+        case 0x44: case 0x45: case 0x46: case 0x47:
+            instr  = "inc " + Reg16ToStr(opcode - 0x40);
+            length = 1;
+            break;
+
+        case 0x48: case 0x49: case 0x4a: case 0x4b:
+        case 0x4c: case 0x4d: case 0x4e: case 0x4f:
+            instr  = "dec " + Reg16ToStr(opcode - 0x48);
             length = 1;
             break;
 
@@ -426,6 +458,11 @@ std::string Disasm::Process()
         case 0xbc: case 0xbd: case 0xbe: case 0xbf:
             instr = "mov " + Reg16ToStr(opcode - 0xb8) + ", " + Imm16(ip);
             length = 3;
+            break;
+
+        case 0xe3: // jcxz rel8
+            instr = "jcxz " + Disp8(ip);
+            length = 2;
             break;
 
         case 0xe8: // call rel16

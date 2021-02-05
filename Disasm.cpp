@@ -8,6 +8,7 @@ const char* Disasm::s_regName8h[] = { "ah", "ch", "dh", "bh" };
 const char* Disasm::s_regName8[]  = { "al", "cl", "dl", "bl", "ah", "ch", "dh", "bh" };
 const char* Disasm::s_sregName[]  = { "es", "cs", "ss", "ds" };
 const char  Disasm::s_hexDigits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+const char* Disasm::s_modrmOp[]   = { "add", "or", "adc", "sbb", "and", "sub", "xor", "cmp" };
 
 const int Disasm::s_modRmInstLen[256] = {
     2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
@@ -102,6 +103,18 @@ inline std::string Disasm::Imm8(uint8_t* ip)
     return "0x" + Hex8(*ip);
 }
 
+inline std::string Disasm::Rel16(uint8_t* ip, uint16_t offset)
+{
+    return "0x" + Hex16(*reinterpret_cast<uint16_t *>(ip) + offset);
+}
+
+inline std::string Disasm::Rel8(uint8_t* ip, uint16_t offset)
+{
+    char rel8 = *ip;
+
+    return "0x" + Hex16(rel8 + offset);
+}
+
 std::string Disasm::DumpMem(uint16_t segment, uint16_t offset, int length)
 {
     uint8_t* mem = m_memory + segment * 16 + offset;
@@ -133,7 +146,7 @@ inline std::string Disasm::ModRmSReg(uint8_t *ip)
     return s_sregName[(*ip >> 3) & 0x07];
 }
 
-std::string Disasm::ModRm(uint8_t *ip)
+std::string Disasm::ModRm16(uint8_t *ip)
 {
     std::string op;
     uint8_t     modRm = *ip++;
@@ -143,34 +156,34 @@ std::string Disasm::ModRm(uint8_t *ip)
     switch(((modRm >> 3) & 0x18) + (modRm & 0x07))
     {
         // mod 00
-        case 0:  op = "[bx + si]";               break;
-        case 1:  op = "[bx + di]";               break;
-        case 2:  op = "[bp + si]";               break;
-        case 3:  op = "[bp + di]";               break;
-        case 4:  op = "[si]";                    break;
-        case 5:  op = "[di]";                    break;
-        case 6:  op = "[" + Hex16(*disp16) + "]"; break;
-        case 7:  op = "[bx]";                    break;
+        case 0:  op = "word ptr [bx + si]";                break;
+        case 1:  op = "word ptr [bx + di]";                break;
+        case 2:  op = "word ptr [bp + si]";                break;
+        case 3:  op = "word ptr [bp + di]";                break;
+        case 4:  op = "word ptr [si]";                     break;
+        case 5:  op = "word ptr [di]";                     break;
+        case 6:  op = "word ptr [" + Hex16(*disp16) + "]"; break;
+        case 7:  op = "word ptr [bx]";                     break;
 
         // mod 01
-        case 8:  op = "[bx + si " + Dec8(*disp8) + "]"; break;
-        case 9:  op = "[bx + di " + Dec8(*disp8) + "]"; break;
-        case 10: op = "[bp + si " + Dec8(*disp8) + "]"; break;
-        case 11: op = "[bp + di " + Dec8(*disp8) + "]"; break;
-        case 12: op = "[si "      + Dec8(*disp8) + "]"; break;
-        case 13: op = "[si "      + Dec8(*disp8) + "]"; break;
-        case 14: op = "[bp "      + Dec8(*disp8) + "]"; break;
-        case 15: op = "[bx "      + Dec8(*disp8) + "]"; break;
+        case 8:  op = "word ptr [bx + si " + Dec8(*disp8) + "]"; break;
+        case 9:  op = "word ptr [bx + di " + Dec8(*disp8) + "]"; break;
+        case 10: op = "word ptr [bp + si " + Dec8(*disp8) + "]"; break;
+        case 11: op = "word ptr [bp + di " + Dec8(*disp8) + "]"; break;
+        case 12: op = "word ptr [si "      + Dec8(*disp8) + "]"; break;
+        case 13: op = "word ptr [si "      + Dec8(*disp8) + "]"; break;
+        case 14: op = "word ptr [bp "      + Dec8(*disp8) + "]"; break;
+        case 15: op = "word ptr [bx "      + Dec8(*disp8) + "]"; break;
 
         // mod 10
-        case 16: op = "[bx + si + " + Hex16(*disp16) + "]"; break;
-        case 17: op = "[bx + di + " + Hex16(*disp16) + "]"; break;
-        case 18: op = "[bp + si + " + Hex16(*disp16) + "]"; break;
-        case 19: op = "[bp + di + " + Hex16(*disp16) + "]"; break;
-        case 20: op = "[si + "      + Hex16(*disp16) + "]"; break;
-        case 21: op = "[si + "      + Hex16(*disp16) + "]"; break;
-        case 22: op = "[bp + "      + Hex16(*disp16) + "]"; break;
-        case 23: op = "[bx + "      + Hex16(*disp16) + "]"; break;
+        case 16: op = "word ptr [bx + si + " + Hex16(*disp16) + "]"; break;
+        case 17: op = "word ptr [bx + di + " + Hex16(*disp16) + "]"; break;
+        case 18: op = "word ptr [bp + si + " + Hex16(*disp16) + "]"; break;
+        case 19: op = "word ptr [bp + di + " + Hex16(*disp16) + "]"; break;
+        case 20: op = "word ptr [si + "      + Hex16(*disp16) + "]"; break;
+        case 21: op = "word ptr [si + "      + Hex16(*disp16) + "]"; break;
+        case 22: op = "word ptr [bp + "      + Hex16(*disp16) + "]"; break;
+        case 23: op = "word ptr [bx + "      + Hex16(*disp16) + "]"; break;
 
         // mod 11
         case 24: op = "ax"; break;
@@ -184,6 +197,98 @@ std::string Disasm::ModRm(uint8_t *ip)
     }
 
     return op;
+}
+
+std::string Disasm::ModRm8(uint8_t *ip)
+{
+    std::string op;
+    uint8_t     modRm = *ip++;
+    int8_t*     disp8  = reinterpret_cast<int8_t *>(ip);
+    uint16_t*   disp16 = reinterpret_cast<uint16_t *>(ip);
+
+    switch(((modRm >> 3) & 0x18) + (modRm & 0x07))
+    {
+        // mod 00
+        case 0:  op = "byte ptr [bx + si]";                break;
+        case 1:  op = "byte ptr [bx + di]";                break;
+        case 2:  op = "byte ptr [bp + si]";                break;
+        case 3:  op = "byte ptr [bp + di]";                break;
+        case 4:  op = "byte ptr [si]";                     break;
+        case 5:  op = "byte ptr [di]";                     break;
+        case 6:  op = "byte ptr [" + Hex16(*disp16) + "]"; break;
+        case 7:  op = "byte ptr [bx]";                     break;
+
+        // mod 01
+        case 8:  op = "byte ptr [bx + si " + Dec8(*disp8) + "]"; break;
+        case 9:  op = "byte ptr [bx + di " + Dec8(*disp8) + "]"; break;
+        case 10: op = "byte ptr [bp + si " + Dec8(*disp8) + "]"; break;
+        case 11: op = "byte ptr [bp + di " + Dec8(*disp8) + "]"; break;
+        case 12: op = "byte ptr [si "      + Dec8(*disp8) + "]"; break;
+        case 13: op = "byte ptr [si "      + Dec8(*disp8) + "]"; break;
+        case 14: op = "byte ptr [bp "      + Dec8(*disp8) + "]"; break;
+        case 15: op = "byte ptr [bx "      + Dec8(*disp8) + "]"; break;
+
+        // mod 10
+        case 16: op = "byte ptr [bx + si + " + Hex16(*disp16) + "]"; break;
+        case 17: op = "byte ptr [bx + di + " + Hex16(*disp16) + "]"; break;
+        case 18: op = "byte ptr [bp + si + " + Hex16(*disp16) + "]"; break;
+        case 19: op = "byte ptr [bp + di + " + Hex16(*disp16) + "]"; break;
+        case 20: op = "byte ptr [si + "      + Hex16(*disp16) + "]"; break;
+        case 21: op = "byte ptr [si + "      + Hex16(*disp16) + "]"; break;
+        case 22: op = "byte ptr [bp + "      + Hex16(*disp16) + "]"; break;
+        case 23: op = "byte ptr [bx + "      + Hex16(*disp16) + "]"; break;
+
+        // mod 11
+        case 24: op = "al"; break;
+        case 25: op = "cl"; break;
+        case 26: op = "dl"; break;
+        case 27: op = "bl"; break;
+        case 28: op = "ah"; break;
+        case 29: op = "ch"; break;
+        case 30: op = "dh"; break;
+        case 31: op = "bh"; break;
+    }
+
+    return op;
+}
+
+std::string Disasm::Handle80h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+    uint8_t rm  = modrm & 0x07;
+
+    if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
+        return "Invalid Op";
+
+    return std::string(s_modrmOp[op]) + " " + ModRm8(ip) + ", " + Imm8(ip + 1);
+}
+
+std::string Disasm::Handle81h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+    uint8_t rm  = modrm & 0x07;
+
+    if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
+        return "Invalid Op";
+
+    return std::string(s_modrmOp[op]) + " " + ModRm16(ip) + ", " + Imm16(ip + 1);
+}
+
+std::string Disasm::Handle83h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+    uint8_t rm  = modrm & 0x07;
+
+    if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
+        return "Invalid Op";
+
+    return std::string(s_modrmOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + 1));
 }
 
 // public methods
@@ -206,22 +311,22 @@ std::string Disasm::Process()
             break;
 
         case 0x08: // or r/m8, r8
-            instr  = "or " + ModRm(ip) + ", " + ModRmReg8(ip);
+            instr  = "or " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x09: // or r/m16, r16
-            instr  = "or " + ModRm(ip) + ", " + ModRmReg16(ip);
+            instr  = "or " + ModRm16(ip) + ", " + ModRmReg16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x0a: // or r8, r/m8
-            instr  = "or " + ModRmReg8(ip) + ", " + ModRm(ip);
+            instr  = "or " + ModRmReg8(ip) + ", " + ModRm8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x0b: // or r16, r/m16
-            instr  = "or " + ModRmReg16(ip) + ", " + ModRm(ip);
+            instr  = "or " + ModRmReg16(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
@@ -256,22 +361,22 @@ std::string Disasm::Process()
             break;
 
         case 0x30: // xor r/m8, r8
-            instr  = "xor " + ModRm(ip) + ", " + ModRmReg8(ip);
+            instr  = "xor " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x31: // xor r/m16, r16
-            instr  = "xor " + ModRm(ip) + ", " + ModRmReg16(ip);
+            instr  = "xor " + ModRm16(ip) + ", " + ModRmReg16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x32: // xor r8, r/m8
-            instr  = "xor " + ModRmReg8(ip) + ", " + ModRm(ip);
+            instr  = "xor " + ModRmReg8(ip) + ", " + ModRm8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x33: // xor r16, r/m16
-            instr  = "xor " + ModRmReg16(ip) + ", " + ModRm(ip);
+            instr  = "xor " + ModRmReg16(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
@@ -281,22 +386,22 @@ std::string Disasm::Process()
             break;
 
         case 0x38: // cmp r/m8, r8
-            instr  = "cmp " + ModRm(ip) + ", " + ModRmReg8(ip);
+            instr  = "cmp " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x39: // cmp r/m16, r16
-            instr  = "cmp " + ModRm(ip) + ", " + ModRmReg16(ip);
+            instr  = "cmp " + ModRm16(ip) + ", " + ModRmReg16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x3a: // cmp r8, r/m8
-            instr  = "cmp " + ModRmReg8(ip) + ", " + ModRm(ip);
+            instr  = "cmp " + ModRmReg8(ip) + ", " + ModRm8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x3b: // cmp r16, r/m16
-            instr  = "cmp " + ModRmReg16(ip) + ", " + ModRm(ip);
+            instr  = "cmp " + ModRmReg16(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
@@ -330,102 +435,122 @@ std::string Disasm::Process()
             break;
 
         case 0x70: // jo rel8
-            instr = "jo " + Disp8(ip);
+            instr = "jo " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x71: // jno rel8
-            instr = "jno " + Disp8(ip);
+            instr = "jno " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x72: // jb rel8
-            instr = "jb " + Disp8(ip);
+            instr = "jb " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x73: // jnb rel8
-            instr = "jnb " + Disp8(ip);
+            instr = "jnb " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x74: // je rel8
-            instr = "je " + Disp8(ip);
+            instr = "je " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x75: // jne rel8
-            instr = "jne " + Disp8(ip);
+            instr = "jne " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x76: // jna rel8
-            instr = "jna " + Disp8(ip);
+            instr = "jna " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x77: // ja rel8
-            instr = "ja " + Disp8(ip);
+            instr = "ja " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x78: // js rel8
-            instr = "js " + Disp8(ip);
+            instr = "js " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x79: // jns rel8
-            instr = "jns " + Disp8(ip);
+            instr = "jns " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x7a: // jp rel8
-            instr = "jp " + Disp8(ip);
+            instr = "jp " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x7b: // jnp rel8
-            instr = "jnp " + Disp8(ip);
+            instr = "jnp " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x7c: // jl rel8
-            instr = "jl " + Disp8(ip);
+            instr = "jl " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x7d: // jnl rel8
-            instr = "jnl " + Disp8(ip);
+            instr = "jnl " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x7e: // jle rel8
-            instr = "jle " + Disp8(ip);
+            instr = "jle " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0x7f: // jg rel8
-            instr = "jg " + Disp8(ip);
+            instr = "jg " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
+        case 0x80:
+            instr = Handle80h(ip);
+            length = 3;
+            break;
+
+        case 0x81:
+            instr = Handle81h(ip);
+            length = 4;
+            break;
+
+        case 0x82:
+            instr = Handle80h(ip);
+            length = 3;
+            break;
+
+        case 0x83:
+            instr = Handle83h(ip);
+            length = 3;
+            break;
+
         case 0x89: // mov r/m16, r16
-            instr  = "mov " + ModRm(ip) + ", " + ModRmReg16(ip);
+            instr  = "mov " + ModRm16(ip) + ", " + ModRmReg16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x8b: // mov r16, r/m16
-            instr  = "mov " + ModRmReg16(ip) + ", " + ModRm(ip);
+            instr  = "mov " + ModRmReg16(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x8c: // mov r/m16, Sreg
-            instr = "mov " + ModRm(ip) + ", " + ModRmSReg(ip);
+            instr = "mov " + ModRm16(ip) + ", " + ModRmSReg(ip);
             length = s_modRmInstLen[*ip];
             break;
 
         case 0x8e: // mov Sreg, r/m16
-            instr = "mov " + ModRmSReg(ip) + ", " + ModRm(ip);
+            instr = "mov " + ModRmSReg(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
             break;
 
@@ -461,12 +586,12 @@ std::string Disasm::Process()
             break;
 
         case 0xe3: // jcxz rel8
-            instr = "jcxz " + Disp8(ip);
+            instr = "jcxz " + Rel8(ip, offset + 2);
             length = 2;
             break;
 
         case 0xe8: // call rel16
-            instr = "call " + Disp16(ip);
+            instr = "call " + Rel16(ip, offset + 3);
             length = 3;
             break;
 
@@ -476,7 +601,7 @@ std::string Disasm::Process()
             break;
 
         case 0xc4:
-            instr = "les " + ModRmReg16(ip) + ", [" + Disp16(ip + 1) + "]";
+            instr = "les " + ModRmReg16(ip) + ", [" + Hex16(*reinterpret_cast<uint16_t*>(ip + 1)) + "]";
             length = 4;
             break;
 

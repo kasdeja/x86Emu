@@ -171,7 +171,14 @@ private:
     template<typename F> void ModRmModifyOp16(uint8_t *ip, F&& f);
     template<typename F> void ModRmModifyOp8(uint8_t *ip, F&& f);
 
+    template<typename F> void ModRmModifyOpNoDisp16(uint8_t *ip, F&& f);
+    template<typename F> void ModRmModifyOpNoDisp8(uint8_t *ip, F&& f);
+
     void HandleREPNE(uint8_t opcode);
+    void Handle80h(uint8_t* ip);
+    void Handle81h(uint8_t* ip);
+    void Handle83h(uint8_t* ip);
+
     void ExecuteInstruction();
 };
 

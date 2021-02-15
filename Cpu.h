@@ -156,12 +156,18 @@ private:
     void SetSubFlags8(uint8_t op1, uint8_t op2, uint8_t result);
     void SetAddFlags16(uint16_t op1, uint16_t op2, uint16_t result);
     void SetAddFlags8(uint8_t op1, uint8_t op2, uint8_t result);
+    void SetLogicFlags16(uint16_t result);
+    void SetLogicFlags8(uint8_t result);
 
     void RecalcFlags();
     void RestoreLazyFlags();
 
     uint16_t  ModRmLoad16(uint8_t *ip);
     uint8_t   ModRmLoad8(uint8_t *ip);
+
+    uint16_t  ModRmLoadNoDisp16(uint8_t *ip);
+    uint8_t   ModRmLoadNoDisp8(uint8_t *ip);
+
     void      ModRmStore16(uint8_t *ip, uint16_t value);
     void      ModRmStore8(uint8_t *ip, uint8_t value);
 
@@ -171,13 +177,21 @@ private:
     template<typename F> void ModRmModifyOp16(uint8_t *ip, F&& f);
     template<typename F> void ModRmModifyOp8(uint8_t *ip, F&& f);
 
+    template<typename F> void ModRmModifyOpNoReg16(uint8_t *ip, F&& f);
+    template<typename F> void ModRmModifyOpNoReg8(uint8_t *ip, F&& f);
+
     template<typename F> void ModRmModifyOpNoDisp16(uint8_t *ip, F&& f);
     template<typename F> void ModRmModifyOpNoDisp8(uint8_t *ip, F&& f);
 
     void HandleREPNE(uint8_t opcode);
+    void Handle8xCommon(uint8_t* ip, uint16_t op2);
     void Handle80h(uint8_t* ip);
     void Handle81h(uint8_t* ip);
     void Handle83h(uint8_t* ip);
+    void HandleF6h(uint8_t* ip);
+    void HandleF7h(uint8_t* ip);
+    void HandleShift16(uint8_t* ip, uint8_t shift);
+    void HandleShift8(uint8_t* ip, uint8_t shift);
 
     void ExecuteInstruction();
 };

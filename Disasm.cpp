@@ -8,7 +8,9 @@ const char* Disasm::s_regName8h[] = { "ah", "ch", "dh", "bh" };
 const char* Disasm::s_regName8[]  = { "al", "cl", "dl", "bl", "ah", "ch", "dh", "bh" };
 const char* Disasm::s_sregName[]  = { "es", "cs", "ss", "ds" };
 const char  Disasm::s_hexDigits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-const char* Disasm::s_modrmOp[]   = { "add", "or", "adc", "sbb", "and", "sub", "xor", "cmp" };
+const char* Disasm::s_arithOp[]   = { "add", "or", "adc", "sbb", "and", "sub", "xor", "cmp" };
+const char* Disasm::s_shiftOp[]   = { "rol", "ror", "rcl", "rcr", "shl", "shr", "sal", "sar" };
+
 
 const int Disasm::s_modRmInstLen[256] = {
     2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
@@ -262,7 +264,7 @@ std::string Disasm::Handle80h(uint8_t* ip)
     if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
         return "Invalid Op";
 
-    return std::string(s_modrmOp[op]) + " " + ModRm8(ip) + ", " + Imm8(ip + 1);
+    return std::string(s_arithOp[op]) + " " + ModRm8(ip) + ", " + Imm8(ip + 1);
 }
 
 std::string Disasm::Handle81h(uint8_t* ip)
@@ -275,7 +277,7 @@ std::string Disasm::Handle81h(uint8_t* ip)
     if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
         return "Invalid Op";
 
-    return std::string(s_modrmOp[op]) + " " + ModRm16(ip) + ", " + Imm16(ip + 1);
+    return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", " + Imm16(ip + 1);
 }
 
 std::string Disasm::Handle83h(uint8_t* ip)
@@ -288,7 +290,83 @@ std::string Disasm::Handle83h(uint8_t* ip)
     if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
         return "Invalid Op";
 
-    return std::string(s_modrmOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + 1));
+    return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + 1));
+}
+
+std::string Disasm::HandleF6h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+    uint8_t rm  = modrm & 0x07;
+
+    switch(op)
+    {
+        case 0:
+        case 1:
+            if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
+                return "Invalid Op";
+
+            return std::string("test ") + ModRm8(ip) + ", " + Imm8(ip + 1);
+
+        case 2:
+            return std::string("not ") + ModRm8(ip);
+
+        case 3:
+            return std::string("neg ") + ModRm8(ip);
+
+        case 4:
+            return std::string("mul ") + ModRm8(ip);
+
+        case 5:
+            return std::string("imul ") + ModRm8(ip);
+
+        case 6:
+            return std::string("div ") + ModRm8(ip);
+
+        case 7:
+            return std::string("idiv ") + ModRm8(ip);
+    }
+
+    return "";
+}
+
+std::string Disasm::HandleF7h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+    uint8_t rm  = modrm & 0x07;
+
+    switch(op)
+    {
+        case 0:
+        case 1:
+            if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
+                return "Invalid Op";
+
+            return std::string("test ") + ModRm16(ip) + ", " + Imm16(ip + 1);
+
+        case 2:
+            return std::string("not ") + ModRm16(ip);
+
+        case 3:
+            return std::string("neg ") + ModRm16(ip);
+
+        case 4:
+            return std::string("mul ") + ModRm16(ip);
+
+        case 5:
+            return std::string("imul ") + ModRm16(ip);
+
+        case 6:
+            return std::string("div ") + ModRm16(ip);
+
+        case 7:
+            return std::string("idiv ") + ModRm16(ip);
+    }
+
+    return "";
 }
 
 // public methods
@@ -585,16 +663,6 @@ std::string Disasm::Process()
             length = 3;
             break;
 
-        case 0xe3: // jcxz rel8
-            instr = "jcxz " + Rel8(ip, offset + 2);
-            length = 2;
-            break;
-
-        case 0xe8: // call rel16
-            instr = "call " + Rel16(ip, offset + 3);
-            length = 3;
-            break;
-
         case 0xc3:
             instr = "ret";
             length = 1;
@@ -610,6 +678,36 @@ std::string Disasm::Process()
             length = 2;
             break;
 
+        case 0xd0:
+            instr = std::string(s_shiftOp[(*ip >> 3) & 0x07]) + " " + ModRm8(ip) + ", 1";
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0xd1:
+            instr = std::string(s_shiftOp[(*ip >> 3) & 0x07]) + " " + ModRm16(ip) + ", 1";
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0xd2:
+            instr = std::string(s_shiftOp[(*ip >> 3) & 0x07]) + " " + ModRm8(ip) + ", cl";
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0xd3:
+            instr = std::string(s_shiftOp[(*ip >> 3) & 0x07]) + " " + ModRm16(ip) + ", cl";
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0xe3: // jcxz rel8
+            instr = "jcxz " + Rel8(ip, offset + 2);
+            length = 2;
+            break;
+
+        case 0xe8: // call rel16
+            instr = "call " + Rel16(ip, offset + 3);
+            length = 3;
+            break;
+
         case 0xf2:
             instr = "repne ";
             switch(*ip)
@@ -620,6 +718,16 @@ std::string Disasm::Process()
                 case 0xaf: instr += "scasw"; break;
             }
             length = 2;
+            break;
+
+        case 0xf6:
+            instr = HandleF6h(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0xf7:
+            instr = HandleF7h(ip);
+            length = s_modRmInstLen[*ip];
             break;
 
         case 0xf8:

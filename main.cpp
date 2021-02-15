@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::AX, 2);
 
     printf("Running...\n");
-    cpu->Run(64);
+    cpu->Run(128);
 
     delete cpu;
     delete dos;

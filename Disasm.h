@@ -26,7 +26,8 @@ private:
     static const char* s_sregName[];
     static const char  s_hexDigits[];
     static const int   s_modRmInstLen[256];
-    static const char* s_modrmOp[];
+    static const char* s_arithOp[];
+    static const char* s_shiftOp[];
 
     CpuInterface& m_cpu;
     uint8_t*      m_memory;
@@ -56,6 +57,8 @@ private:
     std::string Handle80h(uint8_t* ip);
     std::string Handle81h(uint8_t* ip);
     std::string Handle83h(uint8_t* ip);
+    std::string HandleF6h(uint8_t* ip);
+    std::string HandleF7h(uint8_t* ip);
 
     std::string DumpMem(uint16_t segment, uint16_t offset, int length);
 };

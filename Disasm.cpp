@@ -261,10 +261,7 @@ std::string Disasm::Handle80h(uint8_t* ip)
     uint8_t op  = (modrm >> 3) & 0x07;
     uint8_t rm  = modrm & 0x07;
 
-    if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
-        return "Invalid Op";
-
-    return std::string(s_arithOp[op]) + " " + ModRm8(ip) + ", " + Imm8(ip + 1);
+    return std::string(s_arithOp[op]) + " " + ModRm8(ip) + ", " + Imm8(ip + s_modRmInstLen[modrm] - 1);
 }
 
 std::string Disasm::Handle81h(uint8_t* ip)
@@ -274,10 +271,7 @@ std::string Disasm::Handle81h(uint8_t* ip)
     uint8_t op  = (modrm >> 3) & 0x07;
     uint8_t rm  = modrm & 0x07;
 
-    if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
-        return "Invalid Op";
-
-    return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", " + Imm16(ip + 1);
+    return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", " + Imm16(ip + s_modRmInstLen[modrm] - 1);
 }
 
 std::string Disasm::Handle83h(uint8_t* ip)
@@ -287,10 +281,7 @@ std::string Disasm::Handle83h(uint8_t* ip)
     uint8_t op  = (modrm >> 3) & 0x07;
     uint8_t rm  = modrm & 0x07;
 
-    if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
-        return "Invalid Op";
-
-    return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + 1));
+    return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + s_modRmInstLen[modrm] - 1));
 }
 
 std::string Disasm::HandleF6h(uint8_t* ip)
@@ -304,10 +295,7 @@ std::string Disasm::HandleF6h(uint8_t* ip)
     {
         case 0:
         case 1:
-            if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
-                return "Invalid Op";
-
-            return std::string("test ") + ModRm8(ip) + ", " + Imm8(ip + 1);
+            return std::string("test ") + ModRm8(ip) + ", " + Imm8(ip + s_modRmInstLen[modrm] - 1);
 
         case 2:
             return std::string("not ") + ModRm8(ip);
@@ -342,10 +330,7 @@ std::string Disasm::HandleF7h(uint8_t* ip)
     {
         case 0:
         case 1:
-            if (mod == 1 || mod == 2 || (mod == 0 && rm == 6))
-                return "Invalid Op";
-
-            return std::string("test ") + ModRm16(ip) + ", " + Imm16(ip + 1);
+            return std::string("test ") + ModRm16(ip) + ", " + Imm16(ip + s_modRmInstLen[modrm] - 1);
 
         case 2:
             return std::string("not ") + ModRm16(ip);
@@ -383,6 +368,36 @@ std::string Disasm::Process()
 
     switch(opcode)
     {
+        case 0x00: // add r/m8, r8
+            instr  = "add " + ModRm8(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x01: // add r/m16, r16
+            instr  = "add " + ModRm16(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x02: // add r8, r/m8
+            instr  = "add " + ModRmReg8(ip) + ", "  + ModRm8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x03: // add r16, r/m16
+            instr  = "add " + ModRmReg16(ip) + ", " + ModRm16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x04: // add al, imm8
+            instr  = "add al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0x05: // add ax, imm16
+            instr  = "add al, " + Imm16(ip);
+            length = 3;
+            break;
+
         case 0x06: // push es
             instr  = "push es";
             length = 1;
@@ -431,6 +446,36 @@ std::string Disasm::Process()
         case 0x26: // prefix - ES override
             instr  = "ES:";
             length = 1;
+            break;
+
+        case 0x28: // sub r/m8, r8
+            instr  = "sub " + ModRm8(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x29: // sub r/m16, r16
+            instr  = "sub " + ModRm16(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x2a: // sub r8, r/m8
+            instr  = "sub " + ModRmReg8(ip) + ", "  + ModRm8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x2b: // sub r16, r/m16
+            instr  = "sub " + ModRmReg16(ip) + ", " + ModRm16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x2c: // sub al, imm8
+            instr  = "sub al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0x2d: // sub ax, imm16
+            instr  = "sub al, " + Imm16(ip);
+            length = 3;
             break;
 
         case 0x2e: // prefix - CS override
@@ -642,8 +687,23 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0xa0: // mov al, moffs8
+            instr = "mov al, byte ptr [" + Hex16(*reinterpret_cast<uint16_t *>(ip)) + "]";
+            length = 3;
+            break;
+
+        case 0xa1: // mov ax, moffs16
+            instr = "mov ax, word ptr [" + Hex16(*reinterpret_cast<uint16_t *>(ip)) + "]";
+            length = 3;
+            break;
+
+        case 0xa2: // mov moffs8, al
+            instr = "mov byte ptr [" + Hex16(*reinterpret_cast<uint16_t *>(ip)) + "], al";
+            length = 3;
+            break;
+
         case 0xa3: // mov moffs16, ax
-            instr = "mov [" + Hex16(*reinterpret_cast<uint16_t *>(ip)) + "], ax";
+            instr = "mov word ptr [" + Hex16(*reinterpret_cast<uint16_t *>(ip)) + "], ax";
             length = 3;
             break;
 
@@ -716,6 +776,24 @@ std::string Disasm::Process()
                 case 0xa7: instr += "cmpsw"; break;
                 case 0xae: instr += "scasb"; break;
                 case 0xaf: instr += "scasw"; break;
+            }
+            length = 2;
+            break;
+
+        case 0xf3:
+            instr = "rep ";
+            switch(*ip)
+            {
+                case 0x6c: instr += "insb"; break;
+                case 0x6d: instr += "insw"; break;
+                case 0x63: instr += "outsb"; break;
+                case 0x6f: instr += "outsw"; break;
+                case 0xa4: instr += "movsb"; break;
+                case 0xa5: instr += "movsw"; break;
+                case 0xaa: instr += "stosb"; break;
+                case 0xab: instr += "stosw"; break;
+                case 0xac: instr += "lodsb"; break;
+                case 0xad: instr += "lodsw"; break;
             }
             length = 2;
             break;

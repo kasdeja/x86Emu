@@ -165,9 +165,6 @@ private:
     uint16_t  ModRmLoad16(uint8_t *ip);
     uint8_t   ModRmLoad8(uint8_t *ip);
 
-    uint16_t  ModRmLoadNoDisp16(uint8_t *ip);
-    uint8_t   ModRmLoadNoDisp8(uint8_t *ip);
-
     void      ModRmStore16(uint8_t *ip, uint16_t value);
     void      ModRmStore8(uint8_t *ip, uint8_t value);
 
@@ -180,10 +177,8 @@ private:
     template<typename F> void ModRmModifyOpNoReg16(uint8_t *ip, F&& f);
     template<typename F> void ModRmModifyOpNoReg8(uint8_t *ip, F&& f);
 
-    template<typename F> void ModRmModifyOpNoDisp16(uint8_t *ip, F&& f);
-    template<typename F> void ModRmModifyOpNoDisp8(uint8_t *ip, F&& f);
-
     void HandleREPNE(uint8_t opcode);
+    void HandleREP(uint8_t opcode);
     void Handle8xCommon(uint8_t* ip, uint16_t op2);
     void Handle80h(uint8_t* ip);
     void Handle81h(uint8_t* ip);

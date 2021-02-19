@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 
     auto imageInfo = dos->LoadExeFromFile(0x1010, "wolf/WOLF3D.EXE");
 
-    uint16_t nextSeg = imageSeg + (imageInfo.imageSize >> 4);
+    uint16_t nextSeg = 0xa000;// imageSeg + (imageInfo.imageSize >> 4);
 
     dos->BuildEnv(envSeg, { "PATH=C:\\" });
     //dos->BuildEnv(envSeg, { "PATH=C:\\", "PROMPT=$P$G" });
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::AX, 2);
 
     printf("Running...\n");
-    cpu->Run(128);
+    cpu->Run(256);
 
     delete cpu;
     delete dos;

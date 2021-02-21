@@ -134,6 +134,16 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x4a: // Resize memory block
+        {
+            uint16_t seg     = cpu->GetReg16(CpuInterface::ES);
+            uint32_t newSize = cpu->GetReg16(CpuInterface::BX) * 16;
+
+            printf("MsDos::Int21h() resizing memory block 0x%04x to %d bytes\n", seg, newSize);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
         default:
             printf("MsDos::Int21h() function 0x%02x not implemented yet!\n", func);
             break;

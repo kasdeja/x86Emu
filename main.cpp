@@ -33,6 +33,10 @@ int main(int argc, char **argv)
             {
                 dos->Int21h(cpu);
             }
+            else
+            {
+                printf("Unknown interrupt 0x%02x\n", irq);
+            }
         };
 
     cpu->SetReg16(CpuInterface::CS, imageInfo.initCS);

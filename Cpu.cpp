@@ -119,6 +119,42 @@ uint8_t Cpu::GetReg8(Register8 reg)
     return 0;
 }
 
+void Cpu::SetFlag(CpuInterface::Flag flag, bool value)
+{
+    switch(flag)
+    {
+        case CpuInterface::CF: SetCF(value); break;
+        case CpuInterface::PF: SetPF(value); break;
+        case CpuInterface::AF: SetAF(value); break;
+        case CpuInterface::ZF: SetZF(value); break;
+        case CpuInterface::SF: SetSF(value); break;
+        case CpuInterface::TF: m_register[Register::FLAG] &= Flag::TF_mask; m_register[Register::FLAG] |= value << Flag::TF_bit; break;
+        case CpuInterface::IF: m_register[Register::FLAG] &= Flag::IF_mask; m_register[Register::FLAG] |= value << Flag::IF_bit; break;
+        case CpuInterface::DF: m_register[Register::FLAG] &= Flag::DF_mask; m_register[Register::FLAG] |= value << Flag::DF_bit; break;
+        case CpuInterface::OF: SetOF(value); break;
+        case CpuInterface::NT: m_register[Register::FLAG] &= Flag::NT_mask; m_register[Register::FLAG] |= value << Flag::NT_bit; break;
+    }
+}
+
+bool Cpu::GetFlag(CpuInterface::Flag flag)
+{
+    switch(flag)
+    {
+        case CpuInterface::CF: return GetCF();
+        case CpuInterface::PF: return GetPF();
+        case CpuInterface::AF: return GetAF();
+        case CpuInterface::ZF: return GetZF();
+        case CpuInterface::SF: return GetSF();
+        case CpuInterface::TF: return (m_register[Register::FLAG] >> Flag::TF_bit) & 1;
+        case CpuInterface::IF: return (m_register[Register::FLAG] >> Flag::IF_bit) & 1;
+        case CpuInterface::DF: return (m_register[Register::FLAG] >> Flag::DF_bit) & 1;
+        case CpuInterface::OF: return GetOF();
+        case CpuInterface::NT: return (m_register[Register::FLAG] >> Flag::NT_bit) & 1;
+    }
+
+    return false;
+}
+
 Memory& Cpu::GetMem()
 {
     return m_rMemory;
@@ -172,32 +208,32 @@ inline uint16_t Cpu::Imm16(uint8_t* ip)
 
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-    printf("load %08lx val 0x%04x\n",
-        linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+//     printf("load %08lx val 0x%04x\n",
+//         linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint16_t *>(m_memory + linearAddr);
 }
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-    printf("load %08lx val 0x%02x\n",
-        linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+//     printf("load %08lx val 0x%02x\n",
+//         linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint8_t *>(m_memory + linearAddr);
 }
 
 inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 {
-    printf("store %08lx val 0x%04x (was 0x%04x)\n",
-        linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+//     printf("store %08lx val 0x%04x (was 0x%04x)\n",
+//         linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     *reinterpret_cast<uint16_t *>(m_memory + linearAddr) = value;
 }
 
 inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 {
-    printf("store %08lx val 0x%02x (was 0x%02x)\n",
-        linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+//     printf("store %08lx val 0x%02x (was 0x%02x)\n",
+//         linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     *reinterpret_cast<uint8_t *>(m_memory + linearAddr) = value;
 }

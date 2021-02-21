@@ -22,6 +22,9 @@ public:
     uint16_t GetReg16(Register16 reg) override;
     uint8_t GetReg8(Register8 reg) override;
 
+    void SetFlag(CpuInterface::Flag flag, bool value) override;
+    bool GetFlag(CpuInterface::Flag flag) override;
+
     Memory& GetMem() override;
 
     void Run(int nCycles) override;

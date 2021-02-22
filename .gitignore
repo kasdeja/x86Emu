@@ -1,3 +1,13 @@
 main
-wolf/**
 doc/**
+test/**
+wolf/AUDIOHED.WL6
+wolf/AUDIOT.WL6
+wolf/GAMEMAPS.WL6
+wolf/MAPHEAD.WL6
+wolf/VGADICT.WL6
+wolf/VGAGRAPH.WL6
+wolf/VGAHEAD.WL6
+wolf/VSWAP.WL6
+wolf/WOLF3D.EXE
+wolf_src

@@ -104,12 +104,12 @@ void Dos::Int21h(CpuInterface* cpu)
 
     switch(func)
     {
-        case 0x25: // Get interrupt vector
+        case 0x25: // Set interrupt vector
         {
             uint8_t intr = cpu->GetReg8(CpuInterface::AL);
 
-            *reinterpret_cast<uint16_t *>(m_memory + intr * 4)     = cpu->GetReg16(CpuInterface::DS);
-            *reinterpret_cast<uint16_t *>(m_memory + intr * 4 + 2) = cpu->GetReg16(CpuInterface::DX);
+            *reinterpret_cast<uint16_t *>(m_memory + intr * 4 + 2) = cpu->GetReg16(CpuInterface::DS);
+            *reinterpret_cast<uint16_t *>(m_memory + intr * 4)     = cpu->GetReg16(CpuInterface::DX);
             break;
         }
 
@@ -128,9 +128,8 @@ void Dos::Int21h(CpuInterface* cpu)
         {
             uint8_t intr = cpu->GetReg8(CpuInterface::AL);
 
-            cpu->SetReg16(CpuInterface::ES, *reinterpret_cast<uint16_t *>(m_memory + intr * 4));
-            cpu->SetReg16(CpuInterface::BX, *reinterpret_cast<uint16_t *>(m_memory + intr * 4 + 2));
-
+            cpu->SetReg16(CpuInterface::ES, *reinterpret_cast<uint16_t *>(m_memory + intr * 4 + 2));
+            cpu->SetReg16(CpuInterface::BX, *reinterpret_cast<uint16_t *>(m_memory + intr * 4));
             break;
         }
 

@@ -3,14 +3,16 @@
 #include <inttypes.h>
 #include <algorithm>
 #include "Memory.h"
-#include "Cpu.h"
+#include "Bios.h"
 #include "Dos.h"
+#include "Cpu.h"
 
 int main(int argc, char **argv)
 {
     printf("x86emu v0.1\n\n");
 
     Memory*       memory = new Memory(4096);
+    Bios*         bios   = new Bios(*memory);
     Dos*          dos    = new Dos(*memory);
     CpuInterface* cpu    = new Cpu(*memory);
 
@@ -27,11 +29,15 @@ int main(int argc, char **argv)
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "C:\\WOLF\\WOLF3D.EXE");
 
     cpu->onSoftIrq =
-        [dos](CpuInterface *cpu, int irq)
+        [dos, bios](CpuInterface *cpu, int irq)
         {
             if (irq == 0x21)
             {
                 dos->Int21h(cpu);
+            }
+            else if (irq == 0x1a)
+            {
+                bios->Int1Ah(cpu);
             }
             else
             {
@@ -53,6 +59,7 @@ int main(int argc, char **argv)
     cpu->Run(256);
 
     delete cpu;
+    delete bios;
     delete dos;
     delete memory;
 

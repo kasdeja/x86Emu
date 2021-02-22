@@ -12,6 +12,12 @@ Memory::Memory(uint32_t ramSizeKb)
     m_vgaMemorySize = 256 * 1024;
 
     ::memset(m_memory, 0, ramSize + 256 * 1024);
+
+    // Fill interrupt table with pseudo vectors
+    for(int n = 0; n < 256; n++)
+    {
+        reinterpret_cast<uint32_t *>(m_memory)[n] = 0xabcd1000 + n * 16;
+    }
 }
 
 Memory::~Memory()

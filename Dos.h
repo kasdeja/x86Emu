@@ -26,6 +26,7 @@ public:
     Dos(Memory& memory);
     ~Dos();
 
+    // public methods
     void Int21h(CpuInterface *cpu);
 
     uint16_t  BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars);

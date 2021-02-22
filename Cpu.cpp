@@ -2017,8 +2017,18 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
             break;
 
+        case 0x88: // mov r/m8, r8
+            ModRmStore8(ip, *Reg8(*ip));
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
+
         case 0x89: // mov r/m16, r16
             ModRmStore16(ip, *Reg16(*ip));
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
+
+        case 0x8a: // mov r8, r/m8
+            *Reg8(*ip) = ModRmLoad8(ip);
             m_register[Register::IP] += s_modRmInstLen[*ip];
             break;
 
@@ -2137,6 +2147,16 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 3;
             Push16(m_register[Register::IP]);
             m_register[Register::IP] += offset;
+            break;
+
+        case 0xe9: // jmp rel16
+            offset = Disp16(ip);
+            m_register[Register::IP] += offset + 3;
+            break;
+
+        case 0xeb: // jmp rel8
+            offset = Disp8(ip);
+            m_register[Register::IP] += offset + 2;
             break;
 
         case 0xf2:

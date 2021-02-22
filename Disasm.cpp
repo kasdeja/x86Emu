@@ -80,7 +80,7 @@ inline std::string Disasm::Hex8(uint8_t value)
 
 inline std::string Disasm::Dec8(int8_t value)
 {
-    return (value < 0) ? "- " + std::to_string(-value) : "+ " + std::to_string(-value);
+    return (value < 0) ? "- " + std::to_string(-value) : "+ " + std::to_string(value);
 }
 
 inline std::string Disasm::Disp16(uint8_t* ip)
@@ -657,8 +657,18 @@ std::string Disasm::Process()
             length = 3;
             break;
 
+        case 0x88: // mov r/m8, r8
+            instr  = "mov " + ModRm8(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
         case 0x89: // mov r/m16, r16
             instr  = "mov " + ModRm16(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x8a: // mov r8, r/m8
+            instr  = "mov " + ModRmReg8(ip) + ", " + ModRm8(ip);
             length = s_modRmInstLen[*ip];
             break;
 
@@ -766,6 +776,16 @@ std::string Disasm::Process()
         case 0xe8: // call rel16
             instr = "call " + Rel16(ip, offset + 3);
             length = 3;
+            break;
+
+        case 0xe9: // jmp rel16
+            instr = "jmp " + Rel16(ip, offset + 3);
+            length = 3;
+            break;
+
+        case 0xeb: // jmp rel8
+            instr = "jmp " + Rel8(ip, offset + 2);
+            length = 2;
             break;
 
         case 0xf2:

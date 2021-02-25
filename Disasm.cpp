@@ -259,7 +259,6 @@ std::string Disasm::Handle80h(uint8_t* ip)
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
-    uint8_t rm  = modrm & 0x07;
 
     return std::string(s_arithOp[op]) + " " + ModRm8(ip) + ", " + Imm8(ip + s_modRmInstLen[modrm] - 1);
 }
@@ -269,7 +268,6 @@ std::string Disasm::Handle81h(uint8_t* ip)
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
-    uint8_t rm  = modrm & 0x07;
 
     return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", " + Imm16(ip + s_modRmInstLen[modrm] - 1);
 }
@@ -279,9 +277,56 @@ std::string Disasm::Handle83h(uint8_t* ip)
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
-    uint8_t rm  = modrm & 0x07;
 
     return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + s_modRmInstLen[modrm] - 1));
+}
+
+std::string Disasm::HandleC6h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+
+    switch(op)
+    {
+        case 0:
+            return std::string("mov ") + ModRm8(ip) + ", " + Imm8(ip + s_modRmInstLen[modrm] - 1);
+
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            return "Invalid Op";
+    }
+
+    return "";
+}
+
+std::string Disasm::HandleC7h(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+
+    switch(op)
+    {
+        case 0:
+            return std::string("mov ") + ModRm16(ip) + ", " + Imm16(ip + s_modRmInstLen[modrm] - 1);
+
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            return "Invalid Op";
+    }
+
+    return "";
 }
 
 std::string Disasm::HandleF6h(uint8_t* ip)
@@ -289,7 +334,6 @@ std::string Disasm::HandleF6h(uint8_t* ip)
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
-    uint8_t rm  = modrm & 0x07;
 
     switch(op)
     {
@@ -324,7 +368,6 @@ std::string Disasm::HandleF7h(uint8_t* ip)
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
-    uint8_t rm  = modrm & 0x07;
 
     switch(op)
     {
@@ -349,6 +392,42 @@ std::string Disasm::HandleF7h(uint8_t* ip)
 
         case 7:
             return std::string("idiv ") + ModRm16(ip);
+    }
+
+    return "";
+}
+
+std::string Disasm::HandleFFh(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+
+    switch(op)
+    {
+        case 0:
+            return std::string("inc ") + ModRm16(ip);
+
+        case 1:
+            return std::string("dec ") + ModRm16(ip);
+
+        case 2:
+            return std::string("call ") + ModRm16(ip);
+
+        case 3:
+            return std::string("call far ") + ModRm16(ip);
+
+        case 4:
+            return std::string("jmp ") + ModRm16(ip);
+
+        case 5:
+            return std::string("jmp far ") + ModRm16(ip);
+
+        case 6:
+            return std::string("push ") + ModRm16(ip);
+
+        case 7:
+            return "Invalid Op";
     }
 
     return "";
@@ -687,6 +766,17 @@ std::string Disasm::Process()
             length = s_modRmInstLen[*ip];
             break;
 
+        case 0x90: case 0x91: case 0x92: case 0x93:
+        case 0x94: case 0x95: case 0x96: case 0x97:
+            instr  = "xchg ax, " + Reg16ToStr(opcode - 0x90);
+            length = 1;
+            break;
+
+        case 0x98: // cwd
+            instr = "cwd";
+            length = 1;
+            break;
+
         case 0x9c: // pushf
             instr = "pushf";
             length = 1;
@@ -741,6 +831,16 @@ std::string Disasm::Process()
         case 0xc4:
             instr = "les " + ModRmReg16(ip) + ", [" + Hex16(*reinterpret_cast<uint16_t*>(ip + 1)) + "]";
             length = 4;
+            break;
+
+        case 0xc6:
+            instr = HandleC6h(ip);
+            length = s_modRmInstLen[*ip] + 1;
+            break;
+
+        case 0xc7:
+            instr = HandleC7h(ip);
+            length = s_modRmInstLen[*ip] + 2;
             break;
 
         case 0xcd:
@@ -856,6 +956,11 @@ std::string Disasm::Process()
         case 0xfd:
             instr = "std";
             length = 1;
+            break;
+
+        case 0xff:
+            instr = HandleFFh(ip);
+            length = s_modRmInstLen[*ip];
             break;
 
         default:

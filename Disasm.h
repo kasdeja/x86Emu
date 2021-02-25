@@ -57,8 +57,11 @@ private:
     std::string Handle80h(uint8_t* ip);
     std::string Handle81h(uint8_t* ip);
     std::string Handle83h(uint8_t* ip);
+    std::string HandleC6h(uint8_t* ip);
+    std::string HandleC7h(uint8_t* ip);
     std::string HandleF6h(uint8_t* ip);
     std::string HandleF7h(uint8_t* ip);
+    std::string HandleFFh(uint8_t* ip);
 
     std::string DumpMem(uint16_t segment, uint16_t offset, int length);
 };

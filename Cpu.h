@@ -132,6 +132,7 @@ private:
     int8_t    Disp8(uint8_t* ip);
     uint16_t  Imm16(uint8_t* ip);
 
+    uint32_t  Load32(std::size_t linearAddr);
     uint16_t  Load16(std::size_t linearAddr);
     uint8_t   Load8(std::size_t linearAddr);
     void      Store16(std::size_t linearAddr, uint16_t value);
@@ -165,6 +166,7 @@ private:
     void RecalcFlags();
     void RestoreLazyFlags();
 
+    uint32_t  ModRmLoad32(uint8_t *ip);
     uint16_t  ModRmLoad16(uint8_t *ip);
     uint8_t   ModRmLoad8(uint8_t *ip);
 
@@ -186,8 +188,11 @@ private:
     void Handle80h(uint8_t* ip);
     void Handle81h(uint8_t* ip);
     void Handle83h(uint8_t* ip);
+    void HandleC6h(uint8_t* ip);
+    void HandleC7h(uint8_t* ip);
     void HandleF6h(uint8_t* ip);
     void HandleF7h(uint8_t* ip);
+    void HandleFFh(uint8_t* ip);
     void HandleShift16(uint8_t* ip, uint8_t shift);
     void HandleShift8(uint8_t* ip, uint8_t shift);
 

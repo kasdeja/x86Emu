@@ -133,6 +133,37 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x44: // I/O Control for device (IOCTL)
+        {
+            uint8_t cmd = cpu->GetReg8(CpuInterface::AL);
+
+            if (cmd == 0)
+            {
+                uint16_t fd = cpu->GetReg16(CpuInterface::BX);
+
+                if (fd < 3)
+                {
+                    uint16_t devInfo = (1 << 7) | (fd == 0 ? 1 : 2);
+
+                    cpu->SetReg16(CpuInterface::DX, devInfo);
+                    cpu->SetFlag(CpuInterface::CF, false);
+                }
+                else
+                {
+                    cpu->SetReg16(CpuInterface::AX, 6);
+                    cpu->SetFlag(CpuInterface::CF, true);
+
+                    printf("MsDos::Int21h() ioctl %d unkown fd %d!\n", cmd, fd);
+                }
+            }
+            else
+            {
+                printf("MsDos::Int21h() ioctl %d not implemented for device!\n", cmd);
+            }
+
+            break;
+        }
+
         case 0x4a: // Resize memory block
         {
             uint16_t seg     = cpu->GetReg16(CpuInterface::ES);

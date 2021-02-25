@@ -206,10 +206,18 @@ inline uint16_t Cpu::Imm16(uint8_t* ip)
     return *reinterpret_cast<uint16_t *>(ip);
 }
 
+inline uint32_t Cpu::Load32(std::size_t linearAddr)
+{
+    printf("load %08lx val 0x%08x\n",
+        linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
+
+    return *reinterpret_cast<uint32_t *>(m_memory + linearAddr);
+}
+
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-//     printf("load %08lx val 0x%04x\n",
-//         linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+    printf("load %08lx val 0x%04x\n",
+        linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint16_t *>(m_memory + linearAddr);
 }
@@ -415,6 +423,54 @@ void Cpu::RestoreLazyFlags()
         (af << Aux::AF_bit) |
         sf;
 }
+
+inline uint32_t Cpu::ModRmLoad32(uint8_t *ip)
+{
+    uint8_t modRm = *ip++;
+
+    switch(modRm)
+    {
+        // mod 00
+        ModRm_Case(0x00): return Load32(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI]);
+        ModRm_Case(0x01): return Load32(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI]);
+        ModRm_Case(0x02): return Load32(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI]);
+        ModRm_Case(0x03): return Load32(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI]);
+        ModRm_Case(0x04): return Load32(m_segmentBase      + m_register[Register::SI]);
+        ModRm_Case(0x05): return Load32(m_segmentBase      + m_register[Register::DI]);
+        ModRm_Case(0x06): return Load32(m_segmentBase      + Disp16(ip));
+        ModRm_Case(0x07): return Load32(m_segmentBase      + m_register[Register::BX]);
+        // mod 01
+        ModRm_Case(0x40): return Load32(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp8(ip));
+        ModRm_Case(0x41): return Load32(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp8(ip));
+        ModRm_Case(0x42): return Load32(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp8(ip));
+        ModRm_Case(0x43): return Load32(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp8(ip));
+        ModRm_Case(0x44): return Load32(m_segmentBase      + m_register[Register::SI]                            + Disp8(ip));
+        ModRm_Case(0x45): return Load32(m_segmentBase      + m_register[Register::DI]                            + Disp8(ip));
+        ModRm_Case(0x46): return Load32(m_segmentBase      + m_register[Register::BP]                            + Disp8(ip));
+        ModRm_Case(0x47): return Load32(m_segmentBase      + m_register[Register::BX]                            + Disp8(ip));
+        // mod 10
+        ModRm_Case(0x80): return Load32(m_segmentBase      + m_register[Register::BX] + m_register[Register::SI] + Disp16(ip));
+        ModRm_Case(0x81): return Load32(m_segmentBase      + m_register[Register::BX] + m_register[Register::DI] + Disp16(ip));
+        ModRm_Case(0x82): return Load32(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::SI] + Disp16(ip));
+        ModRm_Case(0x83): return Load32(m_stackSegmentBase + m_register[Register::BP] + m_register[Register::DI] + Disp16(ip));
+        ModRm_Case(0x84): return Load32(m_segmentBase      + m_register[Register::SI]                            + Disp16(ip));
+        ModRm_Case(0x85): return Load32(m_segmentBase      + m_register[Register::DI]                            + Disp16(ip));
+        ModRm_Case(0x86): return Load32(m_segmentBase      + m_register[Register::BP]                            + Disp16(ip));
+        ModRm_Case(0x87): return Load32(m_segmentBase      + m_register[Register::BX]                            + Disp16(ip));
+        // mod 11
+        ModRm_Case(0xc0):
+        ModRm_Case(0xc1):
+        ModRm_Case(0xc2):
+        ModRm_Case(0xc3):
+        ModRm_Case(0xc4):
+        ModRm_Case(0xc5):
+        ModRm_Case(0xc6):
+        ModRm_Case(0xc7): m_state |= State::InvalidOp; break;
+    }
+
+    return 0;
+}
+
 
 inline uint16_t Cpu::ModRmLoad16(uint8_t *ip)
 {
@@ -1259,6 +1315,40 @@ void Cpu::Handle83h(uint8_t* ip)
     Handle8xCommon(ip, static_cast<short>(*(ip + s_modRmInstLen[*ip] - 1)));
 }
 
+void Cpu::HandleC6h(uint8_t* ip)
+{
+    uint8_t modrm  = *ip;
+    uint8_t opcode = (modrm >> 3) & 0x07;
+
+    if (opcode == 0) // mov r/m8, imm8
+    {
+        uint8_t value = *(ip + s_modRmInstLen[modrm] - 1);
+
+        ModRmStore8(ip, value);
+    }
+    else
+    {
+        m_state |= State::InvalidOp;
+    }
+}
+
+void Cpu::HandleC7h(uint8_t* ip)
+{
+    uint8_t modrm  = *ip;
+    uint8_t opcode = (modrm >> 3) & 0x07;
+
+    if (opcode == 0) // mov r/m16, imm16
+    {
+        uint16_t value = *reinterpret_cast<uint16_t *>(ip + s_modRmInstLen[*ip] - 1);
+
+        ModRmStore16(ip, value);
+    }
+    else
+    {
+        m_state |= State::InvalidOp;
+    }
+}
+
 void Cpu::HandleF6h(uint8_t* ip)
 {
     uint8_t modrm  = *ip;
@@ -1332,6 +1422,69 @@ void Cpu::HandleF7h(uint8_t* ip)
         case 5: // imul r/m8
         case 6: // div r/m8
         case 7: // idiv r/m8
+            m_state |= State::InvalidOp;
+            break;
+    }
+}
+
+void Cpu::HandleFFh(uint8_t* ip)
+{
+    uint8_t modrm  = *ip;
+    uint8_t opcode = (modrm >> 3) & 0x07;
+
+    switch(opcode)
+    {
+        case 0: // inc r/m16
+            ModRmModifyOpNoReg16(ip,
+                [this](uint16_t op)
+                {
+                    return op + 1;
+                });
+            break;
+
+        case 1: // dec r/m16
+            ModRmModifyOpNoReg16(ip,
+                [this](uint16_t op)
+                {
+                    return op - 1;
+                });
+            break;
+
+        case 2: // call r/m16
+            Push16(m_register[Register::IP]);
+            m_register[Register::IP] = ModRmLoad16(ip);
+            break;
+
+        case 3: // call far r/m16
+            {
+                uint32_t segmentOffset = ModRmLoad32(ip);
+
+                Push16(m_register[Register::CS]);
+                Push16(m_register[Register::IP]);
+
+                m_register[Register::CS] = segmentOffset >> 16;
+                m_register[Register::IP] = segmentOffset &  0xffff;
+            }
+            break;
+
+        case 4: // jmp r/m16
+            m_register[Register::IP] = Load16(m_segmentBase + ModRmLoad16(ip));
+            break;
+
+        case 5: // jmp far r/m16
+            {
+                uint16_t offset = ModRmLoad16(ip);
+
+                m_register[Register::CS] = Load16(m_segmentBase + offset + 2);
+                m_register[Register::IP] = Load16(m_segmentBase + offset);
+            }
+            break;
+
+        case 6: // push r/m16
+            Push16(ModRmLoad16(ip));
+            break;
+
+        case 7:
             m_state |= State::InvalidOp;
             break;
     }
@@ -2049,6 +2202,17 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip];
             break;
 
+        case 0x90: case 0x91: case 0x92: case 0x93:
+        case 0x94: case 0x95: case 0x96: case 0x97:
+            std::swap(m_register[Register::AX], m_register[opcode - 0x90]);
+            m_register[Register::IP] += 1;
+            break;
+
+        case 0x98: // cwd
+            m_register[Register::AX] = static_cast<char>(m_register[Register::AX]);
+            m_register[Register::IP] += 1;
+            break;
+
         case 0x9c: // pushf
             RecalcFlags();
             Push16(m_register[Register::FLAG]);
@@ -2108,6 +2272,16 @@ void Cpu::ExecuteInstruction()
             *Reg16(*ip) = Load16(m_segmentBase + offset);
             m_register[Register::ES] = Load16(m_segmentBase + offset + 2);
             m_register[Register::IP] += 4;
+            break;
+
+        case 0xc6:
+            HandleC6h(ip);
+            m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
+            break;
+
+        case 0xc7:
+            HandleC7h(ip);
+            m_register[Register::IP] += s_modRmInstLen[*ip] + 2;
             break;
 
         case 0xcd: // int imm8
@@ -2197,6 +2371,11 @@ void Cpu::ExecuteInstruction()
         case 0xfd: // std
             m_register[Register::FLAG] |= Flag::DF_mask;
             m_register[Register::IP] += 1;
+            break;
+
+        case 0xff:
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            HandleFFh(ip);
             break;
 
         default:

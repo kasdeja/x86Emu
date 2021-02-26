@@ -57,6 +57,7 @@ private:
     std::string Handle80h(uint8_t* ip);
     std::string Handle81h(uint8_t* ip);
     std::string Handle83h(uint8_t* ip);
+    std::string Handle8Fh(uint8_t* ip);
     std::string HandleC6h(uint8_t* ip);
     std::string HandleC7h(uint8_t* ip);
     std::string HandleF6h(uint8_t* ip);

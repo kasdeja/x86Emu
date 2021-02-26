@@ -281,6 +281,30 @@ std::string Disasm::Handle83h(uint8_t* ip)
     return std::string(s_arithOp[op]) + " " + ModRm16(ip) + ", 0x" + Hex16(*reinterpret_cast<char*>(ip + s_modRmInstLen[modrm] - 1));
 }
 
+std::string Disasm::Handle8Fh(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+
+    switch(op)
+    {
+        case 0:
+            return std::string("pop ") + ModRm16(ip);
+
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            return "Invalid Op";
+    }
+
+    return "";
+}
+
 std::string Disasm::HandleC6h(uint8_t* ip)
 {
     uint8_t modrm = *ip;
@@ -482,6 +506,11 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0x07: // pop es
+            instr  = "pop es";
+            length = 1;
+            break;
+
         case 0x08: // or r/m8, r8
             instr  = "or " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
@@ -520,6 +549,16 @@ std::string Disasm::Process()
         case 0x1f: // pop ds
             instr  = "pop ds";
             length = 1;
+            break;
+
+        case 0x24: // and al, imm8
+            instr  = "and al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0x25: // and ax, imm16
+            instr  = "and ax, " + Imm16(ip);
+            length = 3;
             break;
 
         case 0x26: // prefix - ES override
@@ -605,6 +644,16 @@ std::string Disasm::Process()
         case 0x3b: // cmp r16, r/m16
             instr  = "cmp " + ModRmReg16(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x3c: // cmp al, imm8
+            instr  = "cmp al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0x3d: // cmp ax, imm16
+            instr  = "cmp ax, " + Imm16(ip);
+            length = 3;
             break;
 
         case 0x3e: // prefix - DS override
@@ -736,6 +785,16 @@ std::string Disasm::Process()
             length = 3;
             break;
 
+        case 0x86: // xchg r/m8, r8
+            instr  = "xchg " + ModRm8(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x87: // xchg r/m16, r16
+            instr  = "xchg " + ModRm16(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
         case 0x88: // mov r/m8, r8
             instr  = "mov " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
@@ -763,6 +822,11 @@ std::string Disasm::Process()
 
         case 0x8e: // mov Sreg, r/m16
             instr = "mov " + ModRmSReg(ip) + ", " + ModRm16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x8f:
+            instr = Handle8Fh(ip);
             length = s_modRmInstLen[*ip];
             break;
 
@@ -807,6 +871,16 @@ std::string Disasm::Process()
             length = 3;
             break;
 
+        case 0xac: // lodsb
+            instr = "lodsb";
+            length = 1;
+            break;
+
+        case 0xad: // lodsw
+            instr = "lodsb";
+            length = 1;
+            break;
+
         case 0xb0: case 0xb1: case 0xb2: case 0xb3: // mov reg8, imm8     (reg8 = al, cl, dl, bl)
             instr = "mov " + Reg8LowToStr(opcode - 0xb0) + ", " + Imm8(ip);
             length = 2;
@@ -823,7 +897,12 @@ std::string Disasm::Process()
             length = 3;
             break;
 
-        case 0xc3:
+        case 0xc2: // ret imm16
+            instr = "ret " + Imm16(ip);
+            length = 3;
+            break;
+
+        case 0xc3: // ret
             instr = "ret";
             length = 1;
             break;
@@ -841,6 +920,16 @@ std::string Disasm::Process()
         case 0xc7:
             instr = HandleC7h(ip);
             length = s_modRmInstLen[*ip] + 2;
+            break;
+
+        case 0xca: // retf imm16
+            instr = "retf " + Imm16(ip);
+            length = 3;
+            break;
+
+        case 0xcb: // retf
+            instr = "retf";
+            length = 1;
             break;
 
         case 0xcd:

@@ -188,6 +188,7 @@ private:
     void Handle80h(uint8_t* ip);
     void Handle81h(uint8_t* ip);
     void Handle83h(uint8_t* ip);
+    void Handle8Fh(uint8_t* ip);
     void HandleC6h(uint8_t* ip);
     void HandleC7h(uint8_t* ip);
     void HandleF6h(uint8_t* ip);

@@ -56,7 +56,7 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::AX, 2);
 
     printf("Running...\n");
-    cpu->Run(1024);
+    cpu->Run(2048);
 
     delete cpu;
     delete bios;

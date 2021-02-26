@@ -224,24 +224,24 @@ inline uint16_t Cpu::Load16(std::size_t linearAddr)
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-//     printf("load %08lx val 0x%02x\n",
-//         linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    printf("load %08lx val 0x%02x\n",
+        linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint8_t *>(m_memory + linearAddr);
 }
 
 inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 {
-//     printf("store %08lx val 0x%04x (was 0x%04x)\n",
-//         linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+    printf("store %08lx val 0x%04x (was 0x%04x)\n",
+        linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     *reinterpret_cast<uint16_t *>(m_memory + linearAddr) = value;
 }
 
 inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 {
-//     printf("store %08lx val 0x%02x (was 0x%02x)\n",
-//         linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    printf("store %08lx val 0x%02x (was 0x%02x)\n",
+        linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     *reinterpret_cast<uint8_t *>(m_memory + linearAddr) = value;
 }
@@ -1315,6 +1315,21 @@ void Cpu::Handle83h(uint8_t* ip)
     Handle8xCommon(ip, static_cast<short>(*(ip + s_modRmInstLen[*ip] - 1)));
 }
 
+void Cpu::Handle8Fh(uint8_t* ip)
+{
+    uint8_t modrm  = *ip;
+    uint8_t opcode = (modrm >> 3) & 0x07;
+
+    if (opcode == 0) // pop r/m16
+    {
+        ModRmStore16(ip, Pop16());
+    }
+    else
+    {
+        m_state |= State::InvalidOp;
+    }
+}
+
 void Cpu::HandleC6h(uint8_t* ip)
 {
     uint8_t modrm  = *ip;
@@ -1358,7 +1373,12 @@ void Cpu::HandleF6h(uint8_t* ip)
     {
         case 0: // test r/m8, imm8
         case 1:
-            m_state |= State::InvalidOp;
+            {
+                uint8_t result = ModRmLoad8(ip) & *(ip + 1);
+
+                SetLogicFlags8(result);
+                m_register[Register::IP] += 1;
+            }
             break;
 
         case 2: // not r/m8
@@ -1395,12 +1415,17 @@ void Cpu::HandleF7h(uint8_t* ip)
 
     switch(opcode)
     {
-        case 0: // test r/m8, imm8
+        case 0: // test r/m16, imm16
         case 1:
-            m_state |= State::InvalidOp;
+            {
+                uint16_t result = ModRmLoad16(ip) & Imm16(ip + 1);
+
+                SetLogicFlags16(result);
+                m_register[Register::IP] += 2;
+            }
             break;
 
-        case 2: // not r/m8
+        case 2: // not r/m16
             ModRmModifyOpNoReg16(ip,
                 [this](uint16_t op)
                 {
@@ -1408,7 +1433,7 @@ void Cpu::HandleF7h(uint8_t* ip)
                 });
             break;
 
-        case 3: // neg r/m8
+        case 3: // neg r/m16
             ModRmModifyOpNoReg16(ip,
                 [this](uint16_t op)
                 {
@@ -1418,10 +1443,10 @@ void Cpu::HandleF7h(uint8_t* ip)
                 });
             break;
 
-        case 4: // mul r/m8
-        case 5: // imul r/m8
-        case 6: // div r/m8
-        case 7: // idiv r/m8
+        case 4: // mul r/m16
+        case 5: // imul r/m16
+        case 6: // div r/m16
+        case 7: // idiv r/m16
             m_state |= State::InvalidOp;
             break;
     }
@@ -1753,6 +1778,11 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 1;
             break;
 
+        case 0x07: // pop ds
+            m_register[Register::ES] = Pop16();
+            m_register[Register::IP] += 1;
+            break;
+
         case 0x08: // or r/m8, r8
             ModRmModifyOp8(ip,
                 [this](uint8_t op1, uint8_t op2)
@@ -1824,6 +1854,30 @@ void Cpu::ExecuteInstruction()
             m_register[Register::DS] = Pop16();
             m_register[Register::IP] += 1;
             m_segmentBase = m_register[Register::DS] * 16;
+            break;
+
+        case 0x24: // and al, imm8
+            {
+                uint8_t op1 = m_register[Register::AX];
+                uint8_t op2 = *ip;
+                uint8_t result = op1 & op2;
+
+                SetLogicFlags8(result);
+                m_register[Register::AX] = (m_register[Register::AX] & 0xff00) | result;
+            }
+            m_register[Register::IP] += 2;
+            break;
+
+        case 0x25: // and ax, imm16
+            {
+                uint16_t op1 = m_register[Register::AX];
+                uint16_t op2 = *reinterpret_cast<uint16_t *>(ip);
+                uint16_t result = op1 & op2;
+
+                SetLogicFlags16(result);
+                m_register[Register::AX] = result;
+            }
+            m_register[Register::IP] += 3;
             break;
 
         case 0x26: // prefix - ES override
@@ -2007,6 +2061,28 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip];
             break;
 
+        case 0x3c: // cmp al, imm8
+            {
+                uint8_t op1  = m_register[Register::AX];
+                uint8_t op2  = *ip;
+                uint8_t diff = op1 - op2;
+
+                SetSubFlags8(op1, op2, diff);
+            }
+            m_register[Register::IP] += 2;
+            break;
+
+        case 0x3d: // cmp ax, imm16
+            {
+                uint16_t op1  = m_register[Register::AX];
+                uint16_t op2  = Imm16(ip);
+                uint16_t diff = op1 - op2;
+
+                SetSubFlags16(op1, op2, diff);
+            }
+            m_register[Register::IP] += 3;
+            break;
+
         case 0x3e: // prefix - DS override
             m_segmentBase      = m_register[Register::DS] * 16;
             m_stackSegmentBase = m_register[Register::DS] * 16;
@@ -2170,6 +2246,26 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
             break;
 
+        case 0x86: // xchg r/m8, r8
+            ModRmModifyOp8(ip,
+                [this, ip](uint8_t op1, uint8_t op2)
+                {
+                    *Reg8(*ip) = op1;
+                    return op2;
+                });
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
+
+        case 0x87: // xchg r/m16, r16
+            ModRmModifyOp16(ip,
+                [this, ip](uint16_t op1, uint16_t op2)
+                {
+                    *Reg16(*ip) = op1;
+                    return op2;
+                });
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
+
         case 0x88: // mov r/m8, r8
             ModRmStore8(ip, *Reg8(*ip));
             m_register[Register::IP] += s_modRmInstLen[*ip];
@@ -2199,6 +2295,11 @@ void Cpu::ExecuteInstruction()
             *SReg(*ip) = ModRmLoad16(ip);
             m_segmentBase      = m_register[Register::DS] * 16;
             m_stackSegmentBase = m_register[Register::SS] * 16;
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
+
+        case 0x8f:
+            Handle8Fh(ip);
             m_register[Register::IP] += s_modRmInstLen[*ip];
             break;
 
@@ -2245,6 +2346,23 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 3;
             break;
 
+        case 0xac: // lodsb
+            {
+                m_register[Register::AX] =
+                    (m_register[Register::AX] & 0xff00) | Load8(m_register[Register::DS] * 16 + m_register[Register::SI]);
+                m_register[Register::SI] += (m_register[Register::FLAG] & Flag::DF_mask) ? -1 : 1;
+            }
+            m_register[Register::IP] += 1;
+            break;
+
+        case 0xad: // lodsw
+            {
+                m_register[Register::AX] = Load16(m_register[Register::DS] * 16 + m_register[Register::SI]);
+                m_register[Register::SI] += (m_register[Register::FLAG] & Flag::DF_mask) ? -2 : 2;
+            }
+            m_register[Register::IP] += 1;
+            break;
+
         case 0xb0: case 0xb1: case 0xb2: case 0xb3: // mov reg8, imm8 (reg8 = al, cl, dl, bl)
             reg  = &m_register[opcode - 0xb0];
             *reg = (*reg & 0xff00) | *ip;
@@ -2263,7 +2381,12 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 3;
             break;
 
-        case 0xc3: // pop r16
+        case 0xc2: // ret imm16
+            m_register[Register::IP] = Pop16();
+            m_register[Register::SP] += Imm16(ip);
+            break;
+
+        case 0xc3: // ret
             m_register[Register::IP] = Pop16();
             break;
 
@@ -2282,6 +2405,17 @@ void Cpu::ExecuteInstruction()
         case 0xc7:
             HandleC7h(ip);
             m_register[Register::IP] += s_modRmInstLen[*ip] + 2;
+            break;
+
+        case 0xca: // retf imm16
+            m_register[Register::IP] = Pop16();
+            m_register[Register::CS] = Pop16();
+            m_register[Register::SP] += Imm16(ip);
+            break;
+
+        case 0xcb: // retf
+            m_register[Register::IP] = Pop16();
+            m_register[Register::CS] = Pop16();
             break;
 
         case 0xcd: // int imm8

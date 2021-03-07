@@ -531,9 +531,39 @@ std::string Disasm::Process()
             length = s_modRmInstLen[*ip];
             break;
 
+        case 0x0c: // or al, imm8
+            instr  = "or al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0x0d: // or ax, imm16
+            instr  = "or ax, " + Imm16(ip);
+            length = 3;
+            break;
+
         case 0x0e: // push cs
             instr  = "push cs";
             length = 1;
+            break;
+
+        case 0x10: // adc r/m8, r8
+            instr  = "adc " + ModRm8(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x11: // adc r/m16, r16
+            instr  = "adc " + ModRm16(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x12: // adc r8, r/m8
+            instr  = "adc " + ModRmReg8(ip) + ", "  + ModRm8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x13: // adc r16, r/m16
+            instr  = "adc " + ModRmReg16(ip) + ", " + ModRm16(ip);
+            length = s_modRmInstLen[*ip];
             break;
 
         case 0x14: // adc al, imm8
@@ -684,6 +714,16 @@ std::string Disasm::Process()
         case 0x33: // xor r16, r/m16
             instr  = "xor " + ModRmReg16(ip) + ", " + ModRm16(ip);
             length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x34: // xor al, imm8
+            instr  = "xor al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0x35: // xor ax, imm16
+            instr  = "xor ax, " + Imm16(ip);
+            length = 3;
             break;
 
         case 0x36: // prefix - SS override
@@ -916,8 +956,8 @@ std::string Disasm::Process()
             length = 1;
             break;
 
-        case 0x98: // cwd
-            instr = "cwd";
+        case 0x98: // cbw
+            instr = "cbw";
             length = 1;
             break;
 

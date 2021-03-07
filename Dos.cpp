@@ -110,6 +110,9 @@ void Dos::Int21h(CpuInterface* cpu)
 
             *reinterpret_cast<uint16_t *>(m_memory + intr * 4 + 2) = cpu->GetReg16(CpuInterface::DS);
             *reinterpret_cast<uint16_t *>(m_memory + intr * 4)     = cpu->GetReg16(CpuInterface::DX);
+
+            printf("MsDos::Int21h() function 0x%02x - setting interrupt vector %02xh to %04x:%04x\n",
+                func, intr, cpu->GetReg16(CpuInterface::DS), cpu->GetReg16(CpuInterface::DX));
             break;
         }
 

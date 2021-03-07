@@ -35,13 +35,21 @@ int main(int argc, char **argv)
             {
                 dos->Int21h(cpu);
             }
+            else if (irq == 0x10)
+            {
+                bios->Int10h(cpu);
+            }
+            else if (irq == 0x11)
+            {
+                bios->Int11h(cpu);
+            }
             else if (irq == 0x1a)
             {
                 bios->Int1Ah(cpu);
             }
             else
             {
-                printf("Unknown interrupt 0x%02x\n", irq);
+                cpu->Interrupt(irq);
             }
         };
 
@@ -56,7 +64,7 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::AX, 2);
 
     printf("Running...\n");
-    cpu->Run(2048);
+    cpu->Run(32768);
 
     delete cpu;
     delete bios;

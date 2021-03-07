@@ -17,10 +17,15 @@ public:
     ~Bios();
 
     // public methods
+    void Int10h(CpuInterface *cpu);
+    void Int11h(CpuInterface *cpu);
     void Int1Ah(CpuInterface *cpu);
 
 private:
     uint8_t* m_memory;
+
+    uint8_t m_cursorX;
+    uint8_t m_cursorY;
 };
 
 #endif /* X86EMU_BIOS */

@@ -37,6 +37,7 @@ public:
     virtual Memory& GetMem() = 0;
 
     virtual void Run(int nCycles) = 0;
+    virtual void Interrupt(int num) = 0;
 
     std::function<void (CpuInterface *cpu, int irq)> onSoftIrq;
 };

@@ -28,6 +28,7 @@ public:
     Memory& GetMem() override;
 
     void Run(int nCycles) override;
+    void Interrupt(int num) override;
 
 private:
     enum State
@@ -165,6 +166,8 @@ private:
 
     void RecalcFlags();
     void RestoreLazyFlags();
+
+    void      ModRmLoadEa(uint8_t *ip);
 
     uint32_t  ModRmLoad32(uint8_t *ip);
     uint16_t  ModRmLoad16(uint8_t *ip);

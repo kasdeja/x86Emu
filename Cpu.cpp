@@ -1580,12 +1580,93 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
     switch(opcode)
     {
         case 0: // rol r/m16, x
-        case 1: // ror r/m16, x
-        case 2: // rcl r/m16, x
-        case 3: // rcr r/m16, x
-            m_state |= State::InvalidOp;
+            ModRmModifyOpNoReg16(ip,
+                [this, shift](uint16_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t  shiftTmp = shift & 15;
+                    uint16_t result;
+                    bool of, cf;
+
+                    result = (op << shiftTmp) | (op >> (16 - shiftTmp));
+                    cf     = result & 1;
+                    of     = cf ^ (result >> 15);
+
+                    SetLogicFlags16(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
             break;
 
+        case 1: // ror r/m16, x
+            ModRmModifyOpNoReg16(ip,
+                [this, shift](uint16_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t  shiftTmp = shift & 15;
+                    uint16_t result;
+                    bool of, cf;
+
+                    result = (op >> shiftTmp) | (op << (16 - shiftTmp));
+                    cf     = result >> 15;
+                    of     = cf ^ ((result >> 14) & 1);
+
+                    SetLogicFlags16(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
+
+        case 2: // rcl r/m16, x
+            ModRmModifyOpNoReg16(ip,
+                [this, shift](uint16_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t  shiftTmp = shift % 17;
+                    uint16_t result;
+                    bool of, cf;
+
+                    result = (op << shiftTmp) | (GetCF() << (shiftTmp - 1)) | (op >> (17 - shiftTmp));
+                    cf     = (op >> (16 - shiftTmp)) & 1;
+                    of     = cf ^ (result >> 15);
+
+                    SetLogicFlags16(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
+            break;
+
+        case 3: // rcr r/m16, x
+            ModRmModifyOpNoReg16(ip,
+                [this, shift](uint16_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t  shiftTmp = shift % 17;
+                    uint16_t result;
+                    bool of, cf;
+
+                    of     = cf ^ (op >> 15);
+                    result = (op >> shiftTmp) | (GetCF() << (16 - shiftTmp)) | (op << (17 - shiftTmp));
+                    cf     = (op >> (shiftTmp - 1)) & 1;
+
+                    SetLogicFlags16(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
+            break;
+
+        case 6: // sal r/m16, x
         case 4: // shl r/m16, x
             ModRmModifyOpNoReg16(ip,
                 [this, shift](uint16_t op)
@@ -1600,7 +1681,7 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
                     {
                         result = op << shift;
                         cf     = (result >> (16 - shift)) & 1;
-                        of     = cf & (op >> 15);
+                        of     = cf ^ (op >> 15);
                     }
                     else
                     {
@@ -1629,7 +1710,7 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
                     if (shift <= 16)
                     {
                         result = op >> shift;
-                        cf     = (result >> (shift - 1)) & 1;
+                        cf     = (op >> (shift - 1)) & 1;
                         of     = (((result << 1) ^ result) >> 15) & 1;
                     }
                     else
@@ -1646,9 +1727,34 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
                 });
             break;
 
-        case 6: // sal r/m16, x
         case 7: // sar r/m16, x
-            m_state |= State::InvalidOp;
+            ModRmModifyOpNoReg16(ip,
+                [this, shift](uint16_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint16_t result;
+                    bool of, cf;
+
+                    if (shift <= 16)
+                    {
+                        result = static_cast<short>(op) >> shift;
+                        cf     = (static_cast<short>(op) >> (shift - 1)) & 1;
+                        of     = 0;
+                    }
+                    else
+                    {
+                        result = 0;
+                        cf     = 0;
+                        of     = 0;
+                    }
+
+                    SetLogicFlags16(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
             break;
     }
 }
@@ -1661,12 +1767,93 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
     switch(opcode)
     {
         case 0: // rol r/m8, x
-        case 1: // ror r/m8, x
-        case 2: // rcl r/m8, x
-        case 3: // rcr r/m8, x
-            m_state |= State::InvalidOp;
+            ModRmModifyOpNoReg8(ip,
+                [this, shift](uint8_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t shiftTmp = shift & 7;
+                    uint8_t result;
+                    bool of, cf;
+
+                    result = (op << shiftTmp) | (op >> (8 - shiftTmp));
+                    cf     = result & 1;
+                    of     = cf ^ (result >> 7);
+
+                    SetLogicFlags8(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
             break;
 
+        case 1: // ror r/m8, x
+            ModRmModifyOpNoReg8(ip,
+                [this, shift](uint8_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t shiftTmp = shift & 7;
+                    uint8_t result;
+                    bool of, cf;
+
+                    result = (op >> shiftTmp) | (op << (8 - shiftTmp));
+                    cf     = result >> 7;
+                    of     = cf ^ ((result >> 6) & 1);
+
+                    SetLogicFlags8(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
+
+        case 2: // rcl r/m8, x
+            ModRmModifyOpNoReg8(ip,
+                [this, shift](uint8_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t shiftTmp = shift % 9;
+                    uint8_t result;
+                    bool of, cf;
+
+                    result = (op << shiftTmp) | (GetCF() << (shiftTmp - 1)) | (op >> (9 - shiftTmp));
+                    cf     = (op >> (8 - shiftTmp)) & 1;
+                    of     = cf ^ (result >> 7);
+
+                    SetLogicFlags8(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
+            break;
+
+        case 3: // rcr r/m8, x
+            ModRmModifyOpNoReg8(ip,
+                [this, shift](uint8_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t shiftTmp = shift % 9;
+                    uint8_t result;
+                    bool of, cf;
+
+                    of     = cf ^ (op >> 7);
+                    result = (op >> shiftTmp) | (GetCF() << (8 - shiftTmp)) | (op << (9 - shiftTmp));
+                    cf     = (op >> (shiftTmp - 1)) & 1;
+
+                    SetLogicFlags8(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
+            break;
+
+        case 6: // sal r/m8, x
         case 4: // shl r/m8, x
             ModRmModifyOpNoReg8(ip,
                 [this, shift](uint8_t op)
@@ -1681,7 +1868,7 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                     {
                         result = op << shift;
                         cf     = (result >> (8 - shift)) & 1;
-                        of     = cf & (op >> 7);
+                        of     = cf ^ (op >> 7);
                     }
                     else
                     {
@@ -1710,7 +1897,7 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                     if (shift <= 8)
                     {
                         result = op >> shift;
-                        cf     = (result >> (shift - 1)) & 1;
+                        cf     = (op >> (shift - 1)) & 1;
                         of     = (((result << 1) ^ result) >> 7) & 1;
                     }
                     else
@@ -1727,9 +1914,34 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                 });
             break;
 
-        case 6: // sal r/m16, x
-        case 7: // sar r/m16, x
-            m_state |= State::InvalidOp;
+        case 7: // sar r/m8, x
+            ModRmModifyOpNoReg8(ip,
+                [this, shift](uint8_t op)
+                {
+                    if (shift == 0)
+                        return op;
+
+                    uint8_t result;
+                    bool of, cf;
+
+                    if (shift <= 8)
+                    {
+                        result = static_cast<char>(op) >> shift;
+                        cf     = (static_cast<char>(op) >> (shift - 1)) & 1;
+                        of     = 0;
+                    }
+                    else
+                    {
+                        result = 0;
+                        cf     = 0;
+                        of     = 0;
+                    }
+
+                    SetLogicFlags8(result);
+                    SetOF_CF(of, cf);
+
+                    return result;
+                });
             break;
     }
 }

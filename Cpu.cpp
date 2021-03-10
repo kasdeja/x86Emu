@@ -1106,6 +1106,10 @@ void Cpu::HandleREPNE(uint8_t opcode)
 
         SetSubFlags16(op1, op2, diff);
     }
+    else
+    {
+        m_state |= State::InvalidOp;
+    }
 }
 
 void Cpu::HandleREP(uint8_t opcode)
@@ -1501,7 +1505,41 @@ void Cpu::HandleF7h(uint8_t* ip)
             break;
 
         case 4: // mul r/m16
+            {
+                uint32_t result = m_register[Register::AX] * ModRmLoad16(ip);
+
+                if (result & 0xffff0000)
+                {
+                    SetOF_CF(true, true);
+                }
+                else
+                {
+                    SetOF_CF(false, false);
+                }
+
+                m_register[Register::DX] = result >> 16;
+                m_register[Register::AX] = result;
+            }
+            break;
+
         case 5: // imul r/m16
+            {
+                int32_t result = static_cast<short>(m_register[Register::AX]) * static_cast<short>(ModRmLoad16(ip));
+
+                if (static_cast<short>(result) == result)
+                {
+                    SetOF_CF(false, false);
+                }
+                else
+                {
+                    SetOF_CF(true, true);
+                }
+
+                m_register[Register::DX] = result >> 16;
+                m_register[Register::AX] = result;
+            }
+            break;
+
         case 6: // div r/m16
         case 7: // idiv r/m16
             m_state |= State::InvalidOp;
@@ -2820,11 +2858,27 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
             break;
 
-//         case 0x84: // test r/m8, r8
-//             break
-//
-//         case 0x85: // test r/m16, r16
-//             break
+        case 0x84: // test r/m8, r8
+            {
+                uint8_t op1    = ModRmLoad8(ip);
+                uint8_t op2    = *Reg8(*ip);
+                uint8_t result = op1 & op2;
+
+                SetLogicFlags8(result);
+            }
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
+
+        case 0x85: // test r/m16, r16
+            {
+                uint16_t op1    = ModRmLoad16(ip);
+                uint16_t op2    = *Reg16(*ip);
+                uint16_t result = op1 & op2;
+
+                SetLogicFlags16(result);
+            }
+            m_register[Register::IP] += s_modRmInstLen[*ip];
+            break;
 
         case 0x86: // xchg r/m8, r8
             ModRmModifyOp8(ip,
@@ -2899,8 +2953,10 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 1;
             break;
 
-//         case 0x99: // cwd
-//             break;
+        case 0x99: // cwd
+            m_register[Register::DX] = static_cast<short>(m_register[Register::AX]) >> 15;
+            m_register[Register::IP] += 1;
+            break;
 
         case 0x9a: // call far ptr16:16
             m_register[Register::IP] += 5;
@@ -2951,23 +3007,73 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 3;
             break;
 
-//         case 0xa4: // movsb
-//             break;
+        case 0xa4: // movsb
+            {
+                Store8(m_register[Register::ES] * 16 + m_register[Register::DI],
+                    Load8(m_segmentBase + m_register[Register::SI]));
 
-//         case 0xa5: // movsw
-//             break;
+                short delta = (m_register[Register::FLAG] & Flag::DF_mask) ? -1 : 1;
 
-//         case 0xa6: // cmpsb
-//             break;
+                m_register[Register::SI] += delta;
+                m_register[Register::DI] += delta;
+            }
+            m_register[Register::IP] += 1;
+            break;
 
-//         case 0xa7: // cmpsw
-//             break;
+        case 0xa5: // movsw
+            {
+                Store16(m_register[Register::ES] * 16 + m_register[Register::DI],
+                    Load16(m_segmentBase + m_register[Register::SI]));
 
-//         case 0xa8: // test al, imm8
-//             break;
+                short delta = (m_register[Register::FLAG] & Flag::DF_mask) ? -2 : 2;
 
-//         case 0xa9: // test ax, imm16
-//             break;
+                m_register[Register::SI] += delta;
+                m_register[Register::DI] += delta;
+            }
+            m_register[Register::IP] += 1;
+            break;
+
+        case 0xa6: // cmpsb
+            {
+                uint8_t op1  = Load8(m_segmentBase + m_register[Register::SI]);
+                uint8_t op2  = Load8(m_register[Register::ES] * 16 + m_register[Register::DI]);
+                uint8_t diff = op1 - op2;
+
+                SetSubFlags8(op1, op2, diff);
+
+                short delta = (m_register[Register::FLAG] & Flag::DF_mask) ? -1 : 1;
+
+                m_register[Register::SI] += delta;
+                m_register[Register::DI] += delta;
+            }
+            m_register[Register::IP] += 1;
+            break;
+
+        case 0xa7: // cmpsw
+            {
+                uint16_t op1  = Load16(m_segmentBase + m_register[Register::SI]);
+                uint16_t op2  = Load16(m_register[Register::ES] * 16 + m_register[Register::DI]);
+                uint16_t diff = op1 - op2;
+
+                SetSubFlags16(op1, op2, diff);
+
+                short delta = (m_register[Register::FLAG] & Flag::DF_mask) ? -2 : 2;
+
+                m_register[Register::SI] += delta;
+                m_register[Register::DI] += delta;
+            }
+            m_register[Register::IP] += 1;
+            break;
+
+        case 0xa8: // test al, imm8
+            SetLogicFlags8(m_register[Register::AX] & *ip);
+            m_register[Register::IP] += 2;
+            break;
+
+        case 0xa9: // test ax, imm16
+            SetLogicFlags16(m_register[Register::AX] & Imm16(ip));
+            m_register[Register::IP] += 2;
+            break;
 
         case 0xaa: // stosb
             {
@@ -3002,11 +3108,31 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 1;
             break;
 
-//         case 0xae: // scasb
-//             break;
+        case 0xae: // scasb
+            {
+                uint8_t op1  = m_register[Register::AX] & 0xff;
+                uint8_t op2  = Load8(m_register[Register::ES] * 16 + m_register[Register::DI]);
+                uint8_t diff = op1 - op2;
 
-//         case 0xaf: // scasw
-//             break;
+                SetSubFlags8(op1, op2, diff);
+
+                m_register[Register::DI] += (m_register[Register::FLAG] & Flag::DF_mask) ? -1 : 1;
+            }
+            m_register[Register::IP] += 1;
+            break;
+
+        case 0xaf: // scasw
+            {
+                uint16_t op1  = m_register[Register::AX];
+                uint16_t op2  = Load16(m_register[Register::ES] * 16 + m_register[Register::DI]);
+                uint16_t diff = op1 - op2;
+
+                SetSubFlags16(op1, op2, diff);
+
+                m_register[Register::DI] += (m_register[Register::FLAG] & Flag::DF_mask) ? -2 : 2;
+            }
+            m_register[Register::IP] += 1;
+            break;
 
         case 0xb0: case 0xb1: case 0xb2: case 0xb3: // mov reg8, imm8 (reg8 = al, cl, dl, bl)
             reg  = &m_register[opcode - 0xb0];
@@ -3026,11 +3152,15 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 3;
             break;
 
-//         case 0xc0: // shift8 imm8
-//             break;
+        case 0xc0: // shift8 imm8
+            HandleShift8(ip, *(ip + s_modRmInstLen[*ip] - 1));
+            m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
+            break;
 
-//         case 0xc1: // shift16 imm8
-//             break;
+        case 0xc1: // shift16 imm8
+            HandleShift16(ip, *(ip + s_modRmInstLen[*ip] - 1));
+            m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
+            break;
 
         case 0xc2: // ret imm16
             m_register[Register::IP] = Pop16();
@@ -3102,8 +3232,12 @@ void Cpu::ExecuteInstruction()
 //         case 0xce: // into
 //             break;
 
-//         case 0xcf: // iret
-//             break;
+        case 0xcf: // iret
+            m_register[Register::IP] = Pop16();
+            m_register[Register::CS] = Pop16();
+            m_register[Register::FLAG] = Pop16();
+            RestoreLazyFlags();
+            break;
 
         case 0xd0: // shift r/m8, 1
             HandleShift8(ip, 1);

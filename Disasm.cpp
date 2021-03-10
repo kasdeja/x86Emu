@@ -900,6 +900,16 @@ std::string Disasm::Process()
             length = 3;
             break;
 
+        case 0x84: // test r/m8, r8
+            instr  = "test " + ModRm8(ip) + ", " + ModRmReg8(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
+        case 0x85: // test r/m16, r16
+            instr  = "test " + ModRm16(ip) + ", " + ModRmReg16(ip);
+            length = s_modRmInstLen[*ip];
+            break;
+
         case 0x86: // xchg r/m8, r8
             instr  = "xchg " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
@@ -961,6 +971,11 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0x99: // cwd
+            instr = "cwd";
+            length = 1;
+            break;
+
         case 0x9a: // call far ptr16:16
             instr  = "call " + Hex16(*reinterpret_cast<uint16_t *>(ip + 2)) + ":" + Hex16(*reinterpret_cast<uint16_t *>(ip));
             length = 5;
@@ -996,6 +1011,36 @@ std::string Disasm::Process()
             length = 3;
             break;
 
+        case 0xa4: // movsb
+            instr = "movsb";
+            length = 1;
+            break;
+
+        case 0xa5: // movsw
+            instr = "movsw";
+            length = 1;
+            break;
+
+        case 0xa6: // cmpsb
+            instr = "cmpsb";
+            length = 1;
+            break;
+
+        case 0xa7: // cmpsw
+            instr = "cmpsw";
+            length = 1;
+            break;
+
+        case 0xa8: // test al, imm8
+            instr  = "test al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0xa9: // test ax, imm16
+            instr  = "test ax, " + Imm16(ip);
+            length = 3;
+            break;
+
         case 0xaa: // stosb
             instr = "stosb";
             length = 1;
@@ -1016,6 +1061,16 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0xae: // scasb
+            instr = "scasb";
+            length = 1;
+            break;
+
+        case 0xaf: // scasw
+            instr = "scasw";
+            length = 1;
+            break;
+
         case 0xb0: case 0xb1: case 0xb2: case 0xb3: // mov reg8, imm8     (reg8 = al, cl, dl, bl)
             instr = "mov " + Reg8LowToStr(opcode - 0xb0) + ", " + Imm8(ip);
             length = 2;
@@ -1030,6 +1085,16 @@ std::string Disasm::Process()
         case 0xbc: case 0xbd: case 0xbe: case 0xbf:
             instr = "mov " + Reg16ToStr(opcode - 0xb8) + ", " + Imm16(ip);
             length = 3;
+            break;
+
+        case 0xc0: // shift8 imm8
+            instr = std::string(s_shiftOp[(*ip >> 3) & 0x07]) + " " + ModRm8(ip) + ", " + Imm8(ip + s_modRmInstLen[*ip] - 1);
+            length = s_modRmInstLen[*ip] + 1;
+            break;
+
+        case 0xc1: // shift16 imm8
+            instr = std::string(s_shiftOp[(*ip >> 3) & 0x07]) + " " + ModRm16(ip) + ", " + Imm8(ip + s_modRmInstLen[*ip] - 1);
+            length = s_modRmInstLen[*ip] + 1;
             break;
 
         case 0xc2: // ret imm16
@@ -1077,9 +1142,14 @@ std::string Disasm::Process()
             length = 1;
             break;
 
-        case 0xcd:
+        case 0xcd: // int imm8
             instr = "int " + Imm8(ip);
             length = 4;
+            break;
+
+        case 0xcf: // iret
+            instr = "iret";
+            length = 1;
             break;
 
         case 0xd0:

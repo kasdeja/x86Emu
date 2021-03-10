@@ -31,10 +31,16 @@ public:
 
     uint16_t  BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars);
     void      BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd);
+    void      SetPspSeg(uint16_t pspSeg);
+
     ImageInfo LoadExeFromFile(uint16_t startSegment, const char *filename);
 
 private:
     uint8_t* m_memory;
+
+    uint16_t m_pspSeg;
+    uint16_t m_dtaSeg;
+    uint16_t m_dtaOff;
 };
 
 #endif /* X86EMU_DOS */

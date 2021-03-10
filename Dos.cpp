@@ -104,6 +104,20 @@ void Dos::Int21h(CpuInterface* cpu)
 
     switch(func)
     {
+        case 0x1a: // Get Disk Transfer Area address
+        {
+            m_dtaSeg = cpu->GetReg16(CpuInterface::DS);
+            m_dtaOff = cpu->GetReg16(CpuInterface::DX);
+            break;
+        }
+
+        case 0x2f: // Get Disk Transfer Area address
+        {
+            cpu->SetReg16(CpuInterface::ES, m_dtaSeg);
+            cpu->SetReg16(CpuInterface::BX, m_dtaOff);
+            break;
+        }
+
         case 0x25: // Set interrupt vector
         {
             uint8_t intr = cpu->GetReg8(CpuInterface::AL);
@@ -177,6 +191,25 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x4e: // Find first matching file
+        {
+            char *path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+
+            printf("MsDos::Int21h() function 0x%02x path '%s'\n", func, path);
+
+            if (!::strcmp(path, "*.WL6"))
+            {
+                cpu->SetFlag(CpuInterface::CF, false);
+            }
+            else
+            {
+                cpu->SetReg16(CpuInterface::AX, 2);     // error code: File not found
+                cpu->SetFlag(CpuInterface::CF, true);
+            }
+
+            break;
+        }
+
         default:
             printf("MsDos::Int21h() function 0x%02x not implemented yet!\n", func);
             break;
@@ -216,6 +249,13 @@ void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std
 
     psp->cmdTailLength = cmd.size();
     ::strcpy(psp->cmdTail, cmd.c_str());
+}
+
+void Dos::SetPspSeg(uint16_t pspSeg)
+{
+   m_pspSeg = pspSeg;
+   m_dtaSeg = pspSeg;
+   m_dtaOff = 0x080;
 }
 
 Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)

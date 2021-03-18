@@ -7,6 +7,10 @@ add_executable(x86Emu
     main.cpp
 )
 
-add_executable(vgaTest vgaTest.cpp)
+add_executable(vgaTest
+    Memory.cpp
+    Vga.cpp
+    vgaTest.cpp
+)
 
 target_link_libraries(vgaTest SDL2)

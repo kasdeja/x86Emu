@@ -1,10 +1,12 @@
 #include "CpuInterface.h"
 #include "Memory.h"
+#include "Vga.h"
 #include "Bios.h"
 
 // constructor & destructor
-Bios::Bios(Memory& memory)
+Bios::Bios(Memory& memory, Vga& vga)
     : m_memory(memory.GetMem())
+    , m_vga   (vga)
 {
     // BIOS Data Area
     m_memory[0x484] = 24; // number of rows on screen - 1
@@ -24,6 +26,25 @@ void Bios::Int10h(CpuInterface* cpu)
 
     switch(func)
     {
+        case 0x00: // Set video mode
+        {
+            uint8_t mode = cpu->GetReg8(CpuInterface::AL);
+
+            printf("Bios::Int10h() function 0x%02x - setting video mode to 0x%02x\n",
+                func, mode);
+
+            if (mode == 0x13)
+            {
+                m_vga.SetMode(Vga::Mode::Mode13h);
+            }
+            else if (mode == 0x03)
+            {
+                m_vga.SetMode(Vga::Mode::Text);
+            }
+
+            break;
+        }
+
         case 0x02: // Set cursor position
         {
             uint8_t page = cpu->GetReg8(CpuInterface::BH);

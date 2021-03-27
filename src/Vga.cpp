@@ -106,6 +106,18 @@ Vga::Vga(Memory& memory)
     }
 
     ::memset(m_videoMem, 0, 256 * 1024);
+
+    // Sample content
+//     const char *str = "This is sample text. Hello World! :)";
+//
+//     for(int n = 0; n < ::strlen(str); n++)
+//     {
+//         m_videoMemText[2 * n] = str[n];
+//         m_videoMemText[2 * n + 1] = 15 + (3 << 4);
+//
+//         m_videoMemText[2 * n + 160] = str[n];
+//         m_videoMemText[2 * n + 161] = 7;
+//     }
 }
 
 Vga::~Vga()

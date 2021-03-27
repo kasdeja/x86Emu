@@ -8,12 +8,13 @@
 // forward declarations
 class CpuInterface;
 class Memory;
+class Vga;
 
 class Bios
 {
 public:
     // constructor & destructor
-    Bios(Memory& memory);
+    Bios(Memory& memory, Vga& vga);
     ~Bios();
 
     // public methods
@@ -23,6 +24,7 @@ public:
 
 private:
     uint8_t* m_memory;
+    Vga&     m_vga;
 
     uint8_t m_cursorX;
     uint8_t m_cursorY;

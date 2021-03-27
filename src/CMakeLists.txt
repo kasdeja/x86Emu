@@ -4,8 +4,12 @@ add_executable(x86Emu
     Disasm.cpp
     Dos.cpp
     Memory.cpp
+    SDLInterface.cpp
+    Vga.cpp
     main.cpp
 )
+
+target_link_libraries(x86Emu SDL2 pthread)
 
 add_executable(vgaTest
     Memory.cpp

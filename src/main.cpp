@@ -2,19 +2,26 @@
 #include <string.h>
 #include <inttypes.h>
 #include <algorithm>
+#include <thread>
+#include <atomic>
 #include "Memory.h"
+#include "Vga.h"
 #include "Bios.h"
 #include "Dos.h"
 #include "Cpu.h"
+#include "SDLInterface.h"
 
 int main(int argc, char **argv)
 {
     printf("x86emu v0.1\n\n");
 
+    // Initialize emulator
     Memory*       memory = new Memory(4096);
-    Bios*         bios   = new Bios(*memory);
+    Vga*          vga    = new Vga(*memory);
+    Bios*         bios   = new Bios(*memory, *vga);
     Dos*          dos    = new Dos(*memory);
     CpuInterface* cpu    = new Cpu(*memory);
+    SDLInterface* sdl    = new SDLInterface(vga);
 
     uint16_t envSeg   = 0x0ff0;
     uint16_t pspSeg   = 0x1000;
@@ -63,12 +70,32 @@ int main(int argc, char **argv)
 
     cpu->SetReg16(CpuInterface::AX, 2);
 
-    printf("Running...\n");
-    cpu->Run(32768);
+    // Start main loop
+    std::atomic<bool> running;
+    std::thread       thread;
 
+    if (sdl->Initialize())
+    {
+        running = true;
+
+        thread = std::thread(
+            [&running, cpu]
+            {
+                printf("Running...\n");
+                cpu->Run(32768);
+            });
+
+        sdl->MainLoop();
+
+        if (thread.joinable())
+            thread.join();
+    }
+
+    delete sdl;
     delete cpu;
-    delete bios;
     delete dos;
+    delete bios;
+    delete vga;
     delete memory;
 
     return 0;

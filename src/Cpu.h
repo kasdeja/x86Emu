@@ -123,7 +123,12 @@ private:
     int         m_result;
     int         m_auxbits;
 
+    uint8_t*    m_vgaMemory;
+
     Memory&     m_rMemory;
+
+    uint32_t  PortRead(uint16_t port, int size);
+    void      PortWrite(uint16_t port, int size, uint32_t value);
 
     uint16_t* Reg16(uint8_t modrm);
     uint8_t*  Reg8(uint8_t modrm);

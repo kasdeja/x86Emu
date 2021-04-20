@@ -1207,6 +1207,26 @@ std::string Disasm::Process()
             length = 2;
             break;
 
+        case 0xec:
+            instr = "in al, dx";
+            length = 1;
+            break;
+
+        case 0xed:
+            instr = "in ax, dx";
+            length = 1;
+            break;
+
+        case 0xee:
+            instr = "out dx, al";
+            length = 1;
+            break;
+
+        case 0xef:
+            instr = "out dx, ax";
+            length = 1;
+            break;
+
         case 0xf2:
             instr = "repne ";
             switch(*ip)
@@ -1220,19 +1240,22 @@ std::string Disasm::Process()
             break;
 
         case 0xf3:
-            instr = "rep ";
             switch(*ip)
             {
-                case 0x6c: instr += "insb"; break;
-                case 0x6d: instr += "insw"; break;
-                case 0x63: instr += "outsb"; break;
-                case 0x6f: instr += "outsw"; break;
-                case 0xa4: instr += "movsb"; break;
-                case 0xa5: instr += "movsw"; break;
-                case 0xaa: instr += "stosb"; break;
-                case 0xab: instr += "stosw"; break;
-                case 0xac: instr += "lodsb"; break;
-                case 0xad: instr += "lodsw"; break;
+                case 0x6c: instr = "rep insb";   break;
+                case 0x6d: instr = "rep insw";   break;
+                case 0x6e: instr = "rep outsb";  break;
+                case 0x6f: instr = "rep outsw";  break;
+                case 0xa4: instr = "rep movsb";  break;
+                case 0xa5: instr = "rep movsw";  break;
+                case 0xa6: instr = "repe cmpsb"; break;
+                case 0xa7: instr = "repe cmpsw"; break;
+                case 0xaa: instr = "rep stosb";  break;
+                case 0xab: instr = "rep stosw";  break;
+                case 0xac: instr = "rep lodsb";  break;
+                case 0xad: instr = "rep lodsw";  break;
+                case 0xae: instr = "repe scasb"; break;
+                case 0xaf: instr = "repe scasw"; break;
             }
             length = 2;
             break;

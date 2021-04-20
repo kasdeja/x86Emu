@@ -60,14 +60,61 @@ int main(int argc, char **argv)
             }
         };
 
+    cpu->onPortRead =
+        [vga](CpuInterface *cpu, uint16_t port, int size) -> uint32_t
+        {
+            switch(port)
+            {
+                case 0x3c5:
+                case 0x3c9:
+                case 0x3cf:
+                case 0x3d5:
+                case 0x3da:
+                    return vga->PortRead(port);
+
+                default:
+                    printf("Unhandled read port = 0x%04x, size = %d\n", port, size);
+                    return 0;
+            }
+        };
+
+    cpu->onPortWrite =
+        [vga](CpuInterface *cpu, uint16_t port, int size, uint32_t value)
+        {
+            switch(port)
+            {
+                case 0x3c4: case 0x3c5:
+                case 0x3ce: case 0x3cf:
+                case 0x3d4: case 0x3d5:
+                    if (size == 2)
+                    {
+                        vga->PortWrite(port, value & 0xff);
+                        vga->PortWrite(port + 1, (value >> 8) & 0xff);
+                    }
+                    else
+                    {
+                        vga->PortWrite(port, value);
+                    }
+                    break;
+
+                case 0x3c7:
+                case 0x3c8:
+                case 0x3c9:
+                    vga->PortWrite(port, value);
+                    break;
+
+                default:
+                    printf("Unhandled write port = 0x%04x, size = %d, value = %d (0x%04x)\n", port, size, value, value);
+                    break;
+            }
+        };
+
     cpu->SetReg16(CpuInterface::CS, imageInfo.initCS);
     cpu->SetReg16(CpuInterface::IP, imageInfo.initIP);
     cpu->SetReg16(CpuInterface::SS, imageInfo.initSS);
     cpu->SetReg16(CpuInterface::SP, imageInfo.initSP);
-
     cpu->SetReg16(CpuInterface::DS, pspSeg);
     cpu->SetReg16(CpuInterface::ES, pspSeg);
-
     cpu->SetReg16(CpuInterface::AX, 2);
 
     // Start main loop
@@ -82,7 +129,7 @@ int main(int argc, char **argv)
             [&running, cpu]
             {
                 printf("Running...\n");
-                cpu->Run(32768);
+                cpu->Run(65536 * 16);
             });
 
         sdl->MainLoop();

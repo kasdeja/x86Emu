@@ -28,8 +28,9 @@ uint16_t Cpu::s_modRmInstLen[256] =
 
 // constructor & destructor
 Cpu::Cpu(Memory& memory)
-    : m_memory (memory.GetMem())
-    , m_rMemory(memory)
+    : m_memory   (memory.GetMem())
+    , m_vgaMemory(memory.GetVgaMem())
+    , m_rMemory  (memory)
 {
     std::fill(m_register, m_register + 16, 0);
     m_register[Register::FLAG] = Flag::IF_mask | Flag::Always1_mask;
@@ -187,6 +188,16 @@ void Cpu::Interrupt(int num)
 }
 
 // private methods
+uint32_t Cpu::PortRead(uint16_t port, int size)
+{
+    return onPortRead(this, port, size);
+}
+
+void Cpu::PortWrite(uint16_t port, int size, uint32_t value)
+{
+    onPortWrite(this, port, size, value);
+}
+
 inline uint16_t* Cpu::Reg16(uint8_t modrm)
 {
     return &m_register[(modrm >> 3) & 0x07];
@@ -246,7 +257,14 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 //     printf("store %08lx val 0x%04x (was 0x%04x)\n",
 //         linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
-    *reinterpret_cast<uint16_t *>(m_memory + linearAddr) = value;
+    if ((linearAddr & 0xff0000) == 0xa0000)
+    {
+        *reinterpret_cast<uint16_t *>(m_vgaMemory + linearAddr - 0xa0000) = value;
+    }
+    else
+    {
+        *reinterpret_cast<uint16_t *>(m_memory + linearAddr) = value;
+    }
 }
 
 inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
@@ -254,7 +272,14 @@ inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 //     printf("store %08lx val 0x%02x (was 0x%02x)\n",
 //         linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
-    *reinterpret_cast<uint8_t *>(m_memory + linearAddr) = value;
+    if ((linearAddr & 0xff0000) == 0xa0000)
+    {
+        *reinterpret_cast<uint8_t *>(m_vgaMemory + linearAddr - 0xa0000) = value;
+    }
+    else
+    {
+        *reinterpret_cast<uint8_t *>(m_memory + linearAddr) = value;
+    }
 }
 
 inline void Cpu::Push16(uint16_t value)
@@ -1052,8 +1077,8 @@ void Cpu::HandleREPNE(uint8_t opcode)
 
         while(m_register[Register::CX] > 0)
         {
-            op1  = Load8(dsBase + m_register[Register::SI]);
-            op2  = Load8(esBase + m_register[Register::DI]);
+            op1  = Load16(dsBase + m_register[Register::SI]);
+            op2  = Load16(esBase + m_register[Register::DI]);
             diff = op1 - op2;
 
             m_register[Register::SI] += delta;
@@ -1145,6 +1170,48 @@ void Cpu::HandleREP(uint8_t opcode)
             m_register[Register::CX]--;
         }
     }
+    else if (opcode == 0xa6) // repe cmpsb
+    {
+        uint8_t op1, op2, diff;
+
+        while(m_register[Register::CX] > 0)
+        {
+            op1  = Load8(dsBase + m_register[Register::SI]);
+            op2  = Load8(esBase + m_register[Register::DI]);
+            diff = op1 - op2;
+
+            m_register[Register::SI] += delta;
+            m_register[Register::DI] += delta;
+            m_register[Register::CX]--;
+
+            if (diff != 0)
+                break;
+        }
+
+        SetSubFlags8(op1, op2, diff);
+    }
+    else if (opcode == 0xa7) // repe cmpsw
+    {
+        uint16_t op1, op2, diff;
+
+        delta <<= 1;
+
+        while(m_register[Register::CX] > 0)
+        {
+            op1  = Load16(dsBase + m_register[Register::SI]);
+            op2  = Load16(esBase + m_register[Register::DI]);
+            diff = op1 - op2;
+
+            m_register[Register::SI] += delta;
+            m_register[Register::DI] += delta;
+            m_register[Register::CX]--;
+
+            if (diff != 0)
+                break;
+        }
+
+        SetSubFlags16(op1, op2, diff);
+    }
     else if (opcode == 0xaa) // rep stosb
     {
         uint8_t byte = m_register[Register::AX];
@@ -1171,12 +1238,52 @@ void Cpu::HandleREP(uint8_t opcode)
             m_register[Register::CX]--;
         }
     }
+    else if (opcode == 0x6c) // rep insb
+    {
+        while(m_register[Register::CX] > 0)
+        {
+            Store8(esBase + m_register[Register::DI], PortRead(m_register[Register::DX], 1));
+
+            m_register[Register::DI] += delta;
+            m_register[Register::CX]--;
+        }
+    }
+    else if (opcode == 0x6d) // rep insw
+    {
+        delta <<= 1;
+
+        while(m_register[Register::CX] > 0)
+        {
+            Store16(esBase + m_register[Register::DI], PortRead(m_register[Register::DX], 2));
+
+            m_register[Register::DI] += delta;
+            m_register[Register::CX]--;
+        }
+    }
+    else if (opcode == 0x6e) // rep outsb
+    {
+        while(m_register[Register::CX] > 0)
+        {
+            PortWrite(m_register[Register::DX], 1, Load8(dsBase + m_register[Register::SI]));
+
+            m_register[Register::SI] += delta;
+            m_register[Register::CX]--;
+        }
+    }
+    else if (opcode == 0x6f) // rep outsw
+    {
+        delta <<= 1;
+
+        while(m_register[Register::CX] > 0)
+        {
+            PortWrite(m_register[Register::DX], 2, Load16(dsBase + m_register[Register::SI]));
+
+            m_register[Register::SI] += delta;
+            m_register[Register::CX]--;
+        }
+    }
     else
     {
-        // 6c rep insb
-        // 6d rep insw
-        // 6e rep outsb
-        // 6f rep outsw
         // ac rep lodsb
         // ad rep lodsw
         m_state |= State::InvalidOp;
@@ -1435,7 +1542,7 @@ void Cpu::HandleF6h(uint8_t* ip)
         case 0: // test r/m8, imm8
         case 1:
             {
-                uint8_t result = ModRmLoad8(ip) & *(ip + 1);
+                uint8_t result = ModRmLoad8(ip) & *(ip + s_modRmInstLen[*ip] - 1);
 
                 SetLogicFlags8(result);
                 m_register[Register::IP] += 1;
@@ -1479,7 +1586,9 @@ void Cpu::HandleF7h(uint8_t* ip)
         case 0: // test r/m16, imm16
         case 1:
             {
-                uint16_t result = ModRmLoad16(ip) & Imm16(ip + 1);
+                uint16_t result = ModRmLoad16(ip) & Imm16(ip + s_modRmInstLen[*ip] - 1);
+
+                printf("xxx mem %04x imm %04x\n", ModRmLoad16(ip), Imm16(ip + s_modRmInstLen[*ip] - 1));
 
                 SetLogicFlags16(result);
                 m_register[Register::IP] += 2;
@@ -3341,17 +3450,26 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += offset + 2;
             break;
 
-//         case 0xec: // in al, dx
-//             break;
+        case 0xec: // in al, dx
+            m_register[Register::AX] =
+                (m_register[Register::AX] & 0xff00) | (PortRead(m_register[Register::DX], 1) & 0xff);
+            m_register[Register::IP] += 1;
+            break;
 
-//         case 0xed: // in ax, dx
-//             break;
+        case 0xed: // in ax, dx
+            m_register[Register::AX] = PortRead(m_register[Register::DX], 2);
+            m_register[Register::IP] += 1;
+            break;
 
-//         case 0xee: // out dx, al
-//             break;
+        case 0xee: // out dx, al
+            PortWrite(m_register[Register::DX], 1, m_register[Register::AX] & 0x00ff);
+            m_register[Register::IP] += 1;
+            break;
 
-//         case 0xef: // out dx, ax
-//             break;
+        case 0xef: // out dx, ax
+            PortWrite(m_register[Register::DX], 2, m_register[Register::AX]);
+            m_register[Register::IP] += 1;
+            break;
 
 //         case 0xf0: // prefix - lock
 //             break;

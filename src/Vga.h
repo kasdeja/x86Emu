@@ -22,6 +22,9 @@ public:
     ~Vga();
 
     // public methods
+    uint8_t PortRead(uint16_t port);
+    void    PortWrite(uint16_t port, uint8_t value);
+
     void SetMode(Mode mode);
     void DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride);
 
@@ -41,6 +44,18 @@ private:
     static const uint8_t s_defaultFont[256 * 16];
 
     Memory&     m_rMemory;
+
+    uint8_t     m_sequencerIdx;
+    uint8_t     m_graphicsCtrlIdx;
+    uint8_t     m_crtCtrlIdx;
+    uint8_t     m_sequencerReg[5];
+    uint8_t     m_graphicsCtrlReg[9];
+    uint8_t     m_crtCtrlReg[35];
+    int         m_verticalRetraceCnt;
+
+    uint16_t    m_colorMapReadIdx;
+    uint16_t    m_colorMapWriteIdx;
+    uint8_t     m_vgaColorMap[256][3];
 
     uint64_t    m_colorMap[256];
     int         m_luminance[64];

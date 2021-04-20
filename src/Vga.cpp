@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <math.h>
 #include <string.h>
 #include "Memory.h"
@@ -54,6 +55,21 @@ Vga::Vga(Memory& memory)
     m_currentHeight = 0;
     m_currentMode   = Mode::Text;
 
+    m_sequencerIdx    = 0;
+    m_graphicsCtrlIdx = 0;
+    m_crtCtrlIdx      = 0;
+
+    for(int n = 0; n < 5; n++)
+        m_sequencerReg[n] = 0;
+
+    for(int n = 0; n < 9; n++)
+        m_graphicsCtrlReg[n] = 0;
+
+    for(int n = 0; n < 35; n++)
+        m_crtCtrlReg[n] = 0;
+
+    m_verticalRetraceCnt = 0;
+
     // Alloc memory
     m_linear       = reinterpret_cast<uint8_t *>(aligned_alloc(32,  64 * 1024));
     m_videoMem     = memory.GetVgaMem();
@@ -90,6 +106,11 @@ Vga::Vga(Memory& memory)
     }
 
     // Initialize colormap
+    m_colorMapReadIdx  = 0;
+    m_colorMapWriteIdx = 0;
+
+    ::memcpy(m_vgaColorMap, s_defaultColorMap, 3 * 256);
+
     for(int n = 0; n < 256; n++)
     {
         m_colorMap[n] =
@@ -130,11 +151,345 @@ Vga::~Vga()
 }
 
 // public methods
+uint8_t Vga::PortRead(uint16_t port)
+{
+    if (port == 0x3c9)
+    {
+        uint8_t value = m_vgaColorMap[m_colorMapReadIdx / 3][m_colorMapReadIdx % 3];
+        printf("VGA colormap idx read %d = %d\n", m_colorMapReadIdx, value);
+        m_colorMapReadIdx = (m_colorMapReadIdx + 1) % 768;
+
+        return value;
+    }
+    else if (port == 0x3c5 && m_sequencerIdx < 5) // Sequencer register write
+    {
+        printf("VGA ");
+
+        switch(m_sequencerIdx)
+        {
+            case 0: printf("Reset");                break;
+            case 1: printf("Clocking Mode");        break;
+            case 2: printf("Plane Mask");           break;
+            case 3: printf("Character Map Select"); break;
+            case 4: printf("Memory Mode");          break;
+        }
+
+        printf(" register read  = 0x%02x\n", m_sequencerReg[m_sequencerIdx]);
+
+        return m_sequencerReg[m_sequencerIdx];
+    }
+    else if (port == 0x3cf && m_graphicsCtrlIdx < 9) // Graphics Controller register write
+    {
+        printf("VGA ");
+
+        switch(m_graphicsCtrlIdx)
+        {
+            case 0: printf("Set/Reset");        break;
+            case 1: printf("Enable Set/Reset"); break;
+            case 2: printf("Color Compare");    break;
+            case 3: printf("Data Rotate");      break;
+            case 4: printf("Read Map Select");  break;
+            case 5: printf("Mode");             break;
+            case 6: printf("Misc");             break;
+            case 7: printf("Color Don't Care"); break;
+            case 8: printf("Bit Mask");         break;
+        }
+
+        printf(" register read  = 0x%02x\n", m_graphicsCtrlReg[m_graphicsCtrlIdx]);
+
+        return m_graphicsCtrlReg[m_graphicsCtrlIdx];
+    }
+    else if (port == 0x3d5 && m_crtCtrlIdx < 35) // CRT Controller register write
+    {
+        printf("VGA ");
+
+        switch(m_crtCtrlIdx)
+        {
+            case  0: printf("Horizontal Total");                break;
+            case  1: printf("Horizontal Displat Enable End");   break;
+            case  2: printf("Start Horizontal Blanking");       break;
+            case  3: printf("End Horizontal Blanking");         break;
+            case  4: printf("Start Horizontal Retrace Pulse");  break;
+            case  5: printf("End Horizontal Retrace");          break;
+            case  6: printf("Vertical Total");                  break;
+            case  7: printf("Overflow");                        break;
+            case  8: printf("Preset Row Scan");                 break;
+            case  9: printf("Maximum Scan Line");               break;
+            case 10: printf("Cursor Start");                    break;
+            case 11: printf("Cursor End");                      break;
+            case 12: printf("Start Address High");              break;
+            case 13: printf("Start Address Low");               break;
+            case 14: printf("Cursor Location High");            break;
+            case 15: printf("Cursor Location Low");             break;
+            case 16: printf("Vertical Retrace Start");          break;
+            case 17: printf("Vertical Retrace End");            break;
+            case 18: printf("Vertical Display Enable End");     break;
+            case 19: printf("Offset");                          break;
+            case 20: printf("Underline Location");              break;
+            case 21: printf("Start Vertical Blanking");         break;
+            case 22: printf("End Vertical Blanking");           break;
+            case 23: printf("CRTC Mode Control");               break;
+            case 24: printf("Line Comparator Register");        break;
+
+            default:
+                printf("Unknown");
+                break;
+        }
+
+        printf(" register read  = 0x%02x\n", m_crtCtrlReg[m_crtCtrlIdx]);
+
+        return m_crtCtrlReg[m_crtCtrlIdx];
+    }
+    else if (port == 0x3da)
+    {
+        // TODO: stub
+        m_verticalRetraceCnt++;
+
+        if (m_verticalRetraceCnt >= 60)
+            m_verticalRetraceCnt = 0;
+
+        printf("m_verticalRetraceCnt %d ", m_verticalRetraceCnt);
+
+        if (m_verticalRetraceCnt < 40)
+        {
+            printf("status %d\n", m_verticalRetraceCnt & 1);
+            return m_verticalRetraceCnt & 1;
+        }
+        else if (m_verticalRetraceCnt < 50)
+        {
+            printf("status 8\n");
+            return 0x08;
+        }
+        else
+        {
+            printf("status 1\n");
+            return 0x01; // no retrace, no display
+        }
+    }
+    else
+    {
+        printf("Unhandled VGA read port = 0x%04x\n", port);
+    }
+
+    return 0;
+}
+
+void Vga::PortWrite(uint16_t port, uint8_t value)
+{
+    if (port == 0x3c7)
+    {
+        m_colorMapReadIdx = value * 3;
+        printf("VGA colormap read idx %d / %d \n", m_colorMapReadIdx, value);
+    }
+    else if (port == 0x3c8)
+    {
+        m_colorMapWriteIdx = value * 3;
+        printf("VGA colormap write idx %d / %d \n", m_colorMapWriteIdx, value);
+    }
+    else if (port == 0x3c9)
+    {
+        int idx = m_colorMapWriteIdx / 3;
+
+        m_vgaColorMap[idx][m_colorMapWriteIdx % 3] = value;
+        printf("VGA colormap idx %d write = %d\n", m_colorMapWriteIdx, value);
+        m_colorMapWriteIdx = (m_colorMapWriteIdx + 1) % 768;
+
+        m_colorMap[idx] =
+            (static_cast<uint64_t>(m_luminance[m_vgaColorMap[idx][0]]) << 32) +
+            (static_cast<uint64_t>(m_luminance[m_vgaColorMap[idx][1]]) << 16) +
+            (static_cast<uint64_t>(m_luminance[m_vgaColorMap[idx][2]]));
+    }
+    else if (port == 0x3c4) // Sequencer register index
+    {
+        printf("VGA Sequencer register index = %d\n", value);
+        m_sequencerIdx = value;
+    }
+    else if (port == 0x3ce) // Graphics Controller register index
+    {
+        printf("VGA Graphics Controller register index = %d\n", value);
+        m_graphicsCtrlIdx = value;
+    }
+    else if (port == 0x3d4) // CRT Controller register index
+    {
+        printf("VGA CRT Controller register index = %d\n", value);
+        m_crtCtrlIdx = value;
+    }
+    else if (port == 0x3c5 && m_sequencerIdx < 5) // Sequencer register write
+    {
+        printf("VGA ");
+
+        switch(m_sequencerIdx)
+        {
+            case 0: printf("Reset");                break;
+            case 1: printf("Clocking Mode");        break;
+            case 2: printf("Plane Mask");           break;
+            case 3: printf("Character Map Select"); break;
+            case 4: printf("Memory Mode");          break;
+        }
+
+        printf(" register write = 0x%02x (was 0x%02x)\n", value, m_sequencerReg[m_sequencerIdx]);
+
+        m_sequencerReg[m_sequencerIdx] = value;
+
+        if (m_sequencerIdx == 4)
+        {
+            if (value & 8)
+            {
+                printf("VGA Chain 4 mode is active (linear framebuffer)\n");
+            }
+            else
+            {
+                printf("VGA Chain 4 mode is off (planar framebuffer)\n");
+
+                if (value & 4)
+                    printf("VGA Plane selected by Plane Mask Register\n");
+            }
+        }
+    }
+    else if (port == 0x3cf && m_graphicsCtrlIdx < 9) // Graphics Controller register write
+    {
+        printf("VGA ");
+
+        switch(m_graphicsCtrlIdx)
+        {
+            case 0: printf("Set/Reset");        break;
+            case 1: printf("Enable Set/Reset"); break;
+            case 2: printf("Color Compare");    break;
+            case 3: printf("Data Rotate");      break;
+            case 4: printf("Read Map Select");  break;
+            case 5: printf("Mode");             break;
+            case 6: printf("Misc");             break;
+            case 7: printf("Color Don't Care"); break;
+            case 8: printf("Bit Mask");         break;
+        }
+
+        printf(" register write = 0x%02x (was 0x%02x)\n", value, m_graphicsCtrlReg[m_graphicsCtrlIdx]);
+
+        m_graphicsCtrlReg[m_graphicsCtrlIdx] = value;
+    }
+    else if (port == 0x3d5 && m_crtCtrlIdx < 35) // CRT Controller register write
+    {
+        printf("VGA ");
+
+        switch(m_crtCtrlIdx)
+        {
+            case  0: printf("Horizontal Total");                break;
+            case  1: printf("Horizontal Displat Enable End");   break;
+            case  2: printf("Start Horizontal Blanking");       break;
+            case  3: printf("End Horizontal Blanking");         break;
+            case  4: printf("Start Horizontal Retrace Pulse");  break;
+            case  5: printf("End Horizontal Retrace");          break;
+            case  6: printf("Vertical Total");                  break;
+            case  7: printf("Overflow");                        break;
+            case  8: printf("Preset Row Scan");                 break;
+            case  9: printf("Maximum Scan Line");               break;
+            case 10: printf("Cursor Start");                    break;
+            case 11: printf("Cursor End");                      break;
+            case 12: printf("Start Address High");              break;
+            case 13: printf("Start Address Low");               break;
+            case 14: printf("Cursor Location High");            break;
+            case 15: printf("Cursor Location Low");             break;
+            case 16: printf("Vertical Retrace Start");          break;
+            case 17: printf("Vertical Retrace End");            break;
+            case 18: printf("Vertical Display Enable End");     break;
+            case 19: printf("Offset");                          break;
+            case 20: printf("Underline Location");              break;
+            case 21: printf("Start Vertical Blanking");         break;
+            case 22: printf("End Vertical Blanking");           break;
+            case 23: printf("CRTC Mode Control");               break;
+            case 24: printf("Line Comparator Register");        break;
+
+            default:
+                printf("Unknown");
+                break;
+        }
+
+        printf(" register write = 0x%02x (was 0x%02x)\n", value, m_crtCtrlReg[m_crtCtrlIdx]);
+
+        m_crtCtrlReg[m_crtCtrlIdx] = value;
+
+        if (m_crtCtrlIdx == 20 || m_crtCtrlIdx == 23)
+        {
+            int addresingMode = ((m_crtCtrlReg[20] >> 6) & 1) * 2 + ((m_crtCtrlReg[23] >> 6) & 1);
+
+            switch(addresingMode)
+            {
+                case 0: printf("VGA Addressing Mode = word\n"); break;
+                case 1: printf("VGA Addressing Mode = byte\n"); break;
+                case 2: printf("VGA Addressing Mode = dword\n"); break;
+                case 3: printf("VGA Addressing Mode = dword\n"); break;
+
+                default:
+                    break;
+            }
+        }
+    }
+    else
+    {
+        printf("Unhandled VGA write port = 0x%04x, value = 0x%02x\n", port, value);
+    }
+}
+
 void Vga::SetMode(Vga::Mode mode)
 {
-    m_currentMode = mode;
+//     unsigned char g_80x25_text[] =
+//     {
+//     /* MISC */
+//         0x67,
+//     /* SEQ */
+//         0x03, 0x00, 0x03, 0x00, 0x02,
+//     /* CRTC */
+//         0x5F, 0x4F, 0x50, 0x82, 0x55, 0x81, 0xBF, 0x1F,
+//         0x00, 0x4F, 0x0D, 0x0E, 0x00, 0x00, 0x00, 0x50,
+//         0x9C, 0x0E, 0x8F, 0x28, 0x1F, 0x96, 0xB9, 0xA3,
+//         0xFF,
+//     /* GC */
+//         0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x0E, 0x00,
+//         0xFF,
+//     /* AC */
+//         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x14, 0x07,
+//         0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F,
+//         0x0C, 0x00, 0x0F, 0x08, 0x00
+//     };
+//
+//     unsigned char g_320x200x256[] =
+//     {
+//     /* MISC */
+//         0x63,
+//     /* SEQ */
+//         0x03, 0x01, 0x0F, 0x00, 0x0E,
+//     /* CRTC */
+//         0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F,
+//         0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+//         0x9C, 0x0E, 0x8F, 0x28,	0x40, 0x96, 0xB9, 0xA3,
+//         0xFF,
+//     /* GC */
+//         0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x05, 0x0F,
+//         0xFF,
+//     /* AC */
+//         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+//         0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+//         0x41, 0x00, 0x0F, 0x00,	0x00
+//     };
+
+    m_currentMode   = mode;
     m_currentWidth  = 0;
     m_currentHeight = 0;
+
+    if (m_currentMode == Vga::Mode13h)
+    {
+        static const uint8_t seqReg[5]   = { 0x03, 0x01, 0x0f, 0x00, 0x0e };
+        static const uint8_t gcReg[9]    = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x05, 0x0f, 0xff };
+        static const uint8_t crtcReg[25] =
+            { 0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f,
+              0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+              0x9c, 0x0e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3,
+              0xff };
+
+        ::memcpy(m_sequencerReg,    seqReg,   5);
+        ::memcpy(m_graphicsCtrlReg, gcReg,    9);
+        ::memcpy(m_crtCtrlReg,      crtcReg, 25);
+    }
 }
 
 void Vga::DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride)

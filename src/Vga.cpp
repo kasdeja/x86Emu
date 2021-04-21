@@ -248,21 +248,16 @@ uint8_t Vga::PortRead(uint16_t port)
         if (m_verticalRetraceCnt >= 60)
             m_verticalRetraceCnt = 0;
 
-        printf("m_verticalRetraceCnt %d ", m_verticalRetraceCnt);
-
         if (m_verticalRetraceCnt < 40)
         {
-            printf("status %d\n", m_verticalRetraceCnt & 1);
             return m_verticalRetraceCnt & 1;
         }
         else if (m_verticalRetraceCnt < 50)
         {
-            printf("status 8\n");
             return 0x08;
         }
         else
         {
-            printf("status 1\n");
             return 0x01; // no retrace, no display
         }
     }
@@ -344,6 +339,12 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
                 if (value & 4)
                     printf("VGA Plane selected by Plane Mask Register\n");
             }
+        }
+
+        if (m_sequencerIdx == 2 || m_sequencerIdx == 4)
+        {
+            if (onPlaneModeChange)
+                onPlaneModeChange((m_sequencerReg[4] & 8) != 0, m_sequencerReg[2]);
         }
     }
     else if (port == 0x3cf && m_graphicsCtrlIdx < 9) // Graphics Controller register write

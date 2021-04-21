@@ -1144,7 +1144,7 @@ std::string Disasm::Process()
 
         case 0xcd: // int imm8
             instr = "int " + Imm8(ip);
-            length = 4;
+            length = 2;
             break;
 
         case 0xcf: // iret

@@ -37,6 +37,12 @@ Cpu::Cpu(Memory& memory)
 
     m_result  = 0;
     m_auxbits = 0;
+
+    m_vgaChain4 = true;
+    m_vgaPlaneMask[0] = 0xff;
+    m_vgaPlaneMask[1] = 0xff;
+    m_vgaPlaneMask[2] = 0xff;
+    m_vgaPlaneMask[3] = 0xff;
 }
 
 Cpu::~Cpu()
@@ -187,6 +193,16 @@ void Cpu::Interrupt(int num)
     m_register[Register::IP] = Load16(num * 4);
 }
 
+void Cpu::VgaPlaneMode(bool chain4, uint8_t planeMask)
+{
+    m_vgaChain4 = chain4;
+
+    m_vgaPlaneMask[0] = (planeMask & 1) ? 0xff : 0x00;
+    m_vgaPlaneMask[1] = (planeMask & 2) ? 0xff : 0x00;
+    m_vgaPlaneMask[2] = (planeMask & 4) ? 0xff : 0x00;
+    m_vgaPlaneMask[3] = (planeMask & 8) ? 0xff : 0x00;
+}
+
 // private methods
 uint32_t Cpu::PortRead(uint16_t port, int size)
 {
@@ -257,9 +273,34 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 //     printf("store %08lx val 0x%04x (was 0x%04x)\n",
 //         linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
-    if ((linearAddr & 0xff0000) == 0xa0000)
+    if ((linearAddr & 0xfe0000) == 0xa0000)
     {
-        *reinterpret_cast<uint16_t *>(m_vgaMemory + linearAddr - 0xa0000) = value;
+        std::size_t vgaAddr = linearAddr - 0xa0000;
+
+        if (m_vgaChain4)
+        {
+            *reinterpret_cast<uint16_t *>(m_vgaMemory + vgaAddr) = value;
+        }
+        else
+        {
+            vgaAddr <<= 2;
+
+            uint8_t* vgaMem = m_vgaMemory + vgaAddr;
+            uint8_t  color  = value & 0xff;
+
+            vgaMem[0] = (vgaMem[0] & ~m_vgaPlaneMask[0]) | (color & m_vgaPlaneMask[0]);
+            vgaMem[1] = (vgaMem[1] & ~m_vgaPlaneMask[1]) | (color & m_vgaPlaneMask[1]);
+            vgaMem[2] = (vgaMem[2] & ~m_vgaPlaneMask[2]) | (color & m_vgaPlaneMask[2]);
+            vgaMem[3] = (vgaMem[3] & ~m_vgaPlaneMask[3]) | (color & m_vgaPlaneMask[3]);
+
+            color = value >> 8;
+            vgaMem += 4;
+
+            vgaMem[0] = (vgaMem[0] & ~m_vgaPlaneMask[0]) | (color & m_vgaPlaneMask[0]);
+            vgaMem[1] = (vgaMem[1] & ~m_vgaPlaneMask[1]) | (color & m_vgaPlaneMask[1]);
+            vgaMem[2] = (vgaMem[2] & ~m_vgaPlaneMask[2]) | (color & m_vgaPlaneMask[2]);
+            vgaMem[3] = (vgaMem[3] & ~m_vgaPlaneMask[3]) | (color & m_vgaPlaneMask[3]);
+        }
     }
     else
     {
@@ -272,9 +313,25 @@ inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 //     printf("store %08lx val 0x%02x (was 0x%02x)\n",
 //         linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
-    if ((linearAddr & 0xff0000) == 0xa0000)
+    if ((linearAddr & 0xfe0000) == 0xa0000)
     {
-        *reinterpret_cast<uint8_t *>(m_vgaMemory + linearAddr - 0xa0000) = value;
+        std::size_t vgaAddr = linearAddr - 0xa0000;
+
+        if (m_vgaChain4)
+        {
+            *reinterpret_cast<uint8_t *>(m_vgaMemory + vgaAddr) = value;
+        }
+        else
+        {
+            vgaAddr <<= 2;
+
+            uint8_t* vgaMem = m_vgaMemory + vgaAddr;
+
+            vgaMem[0] = (vgaMem[0] & ~m_vgaPlaneMask[0]) | (value & m_vgaPlaneMask[0]);
+            vgaMem[1] = (vgaMem[1] & ~m_vgaPlaneMask[1]) | (value & m_vgaPlaneMask[1]);
+            vgaMem[2] = (vgaMem[2] & ~m_vgaPlaneMask[2]) | (value & m_vgaPlaneMask[2]);
+            vgaMem[3] = (vgaMem[3] & ~m_vgaPlaneMask[3]) | (value & m_vgaPlaneMask[3]);
+        }
     }
     else
     {

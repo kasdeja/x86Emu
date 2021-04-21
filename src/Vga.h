@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <immintrin.h>
 #include <vector>
+#include <functional>
 
 // forward declarations
 class Memory;
@@ -27,6 +28,8 @@ public:
 
     void SetMode(Mode mode);
     void DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride);
+
+    std::function<void (bool chain4, uint8_t planeMask)> onPlaneModeChange;
 
 private:
     struct FilterBank

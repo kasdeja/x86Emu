@@ -109,6 +109,12 @@ int main(int argc, char **argv)
             }
         };
 
+    vga->onPlaneModeChange =
+        [cpu](bool chain4, uint8_t planeMask)
+        {
+            cpu->VgaPlaneMode(chain4, planeMask);
+        };
+
     cpu->SetReg16(CpuInterface::CS, imageInfo.initCS);
     cpu->SetReg16(CpuInterface::IP, imageInfo.initIP);
     cpu->SetReg16(CpuInterface::SS, imageInfo.initSS);

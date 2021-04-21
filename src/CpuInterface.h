@@ -38,6 +38,7 @@ public:
 
     virtual void Run(int nCycles) = 0;
     virtual void Interrupt(int num) = 0;
+    virtual void VgaPlaneMode(bool chain4, uint8_t planeMask) = 0;
 
     std::function<void     (CpuInterface *cpu, int irq)>                                 onSoftIrq;
     std::function<uint32_t (CpuInterface *cpu, uint16_t port, int size)>                 onPortRead;

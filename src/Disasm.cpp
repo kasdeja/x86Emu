@@ -353,16 +353,19 @@ std::string Disasm::HandleC7h(uint8_t* ip)
     return "";
 }
 
-std::string Disasm::HandleF6h(uint8_t* ip)
+std::string Disasm::HandleF6h(uint8_t* ip, int& length)
 {
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
 
+    length = s_modRmInstLen[modrm];
+
     switch(op)
     {
         case 0:
         case 1:
+            length += 1;
             return std::string("test ") + ModRm8(ip) + ", " + Imm8(ip + s_modRmInstLen[modrm] - 1);
 
         case 2:
@@ -387,16 +390,19 @@ std::string Disasm::HandleF6h(uint8_t* ip)
     return "";
 }
 
-std::string Disasm::HandleF7h(uint8_t* ip)
+std::string Disasm::HandleF7h(uint8_t* ip, int& length)
 {
     uint8_t modrm = *ip;
     uint8_t mod = modrm >> 6;
     uint8_t op  = (modrm >> 3) & 0x07;
 
+    length = s_modRmInstLen[modrm];
+
     switch(op)
     {
         case 0:
         case 1:
+            length += 2;
             return std::string("test ") + ModRm16(ip) + ", " + Imm16(ip + s_modRmInstLen[modrm] - 1);
 
         case 2:
@@ -1261,13 +1267,11 @@ std::string Disasm::Process()
             break;
 
         case 0xf6:
-            instr = HandleF6h(ip);
-            length = s_modRmInstLen[*ip];
+            instr = HandleF6h(ip, length);
             break;
 
         case 0xf7:
-            instr = HandleF7h(ip);
-            length = s_modRmInstLen[*ip];
+            instr = HandleF7h(ip, length);
             break;
 
         case 0xf8:

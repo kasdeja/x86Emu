@@ -16,7 +16,7 @@ Memory::Memory(uint32_t ramSizeKb)
     // Fill interrupt table with pseudo vectors
     for(int n = 0; n < 256; n++)
     {
-        reinterpret_cast<uint32_t *>(m_memory)[n] = 0xabcd1000 + n * 16;
+        reinterpret_cast<uint32_t *>(m_memory)[n] = 0;// 0xabcd1000 + n * 16;
     }
 }
 

@@ -97,9 +97,30 @@ void Bios::Int10h(CpuInterface* cpu)
                 cpu->SetReg16(CpuInterface::BX, 0x0003); // color + 256k of VRAM
                 cpu->SetReg16(CpuInterface::CX, 0x0000);
             }
+            else
+            {
+                printf("Bios::Int10h() function 0x%02x subservice 0x%02x not implemented yet!\n", func, subService);
+            }
 
             break;
         }
+
+        case 0x1a: // Video Display Combination
+        {
+            uint8_t subService = cpu->GetReg8(CpuInterface::AL);
+
+            if (subService == 0x00)
+            {
+                cpu->SetReg8(CpuInterface::AL, 0x1a);
+                cpu->SetReg16(CpuInterface::BX, 0x0008);
+            }
+            else
+            {
+                printf("Bios::Int10h() function 0x%02x subservice 0x%02x not implemented yet!\n", func, subService);
+            }
+
+            break;
+        };
 
         default:
             printf("Bios::Int10h() function 0x%02x not implemented yet!\n", func);

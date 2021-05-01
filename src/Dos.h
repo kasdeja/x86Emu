@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 // forward declarations
 class CpuInterface;
@@ -32,6 +33,7 @@ public:
     uint16_t  BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars);
     void      BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd);
     void      SetPspSeg(uint16_t pspSeg);
+    void      SetCwd(std::string const& cwd);
 
     ImageInfo LoadExeFromFile(uint16_t startSegment, const char *filename);
 
@@ -41,6 +43,11 @@ private:
     uint16_t m_pspSeg;
     uint16_t m_dtaSeg;
     uint16_t m_dtaOff;
+
+    uint16_t m_lastFd;
+    std::string m_cwd;
+    std::unordered_map<int, int> m_fdMap;
+
 };
 
 #endif /* X86EMU_DOS */

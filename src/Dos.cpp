@@ -90,6 +90,7 @@ struct PspHeader
 // constructor & destructor
 Dos::Dos(Memory& memory)
     : m_memory(memory.GetMem())
+    , m_lastFd(4)
 {
 }
 
@@ -150,6 +151,71 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x3d: // Open file
+        {
+            char*   path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+            uint8_t accessMode = cpu->GetReg8(CpuInterface::AL);
+
+            printf("MsDos::Int21h() function 0x%02x path '%s' accessMode %d\n", func, path, accessMode);
+
+            int fd = ::open((m_cwd + "/" + path).c_str(), O_RDONLY);
+
+            if (fd != -1)
+            {
+                printf("MsDos::Int21h() function 0x%02x path '%s' opened\n", func, path);
+                m_fdMap[m_lastFd] = fd;
+
+                cpu->SetReg16(CpuInterface::AX, m_lastFd);
+                cpu->SetFlag(CpuInterface::CF, false);
+                m_lastFd++;
+            }
+            else
+            {
+                printf("MsDos::Int21h() function 0x%02x path '%s' not found \n", func, path);
+                cpu->SetReg16(CpuInterface::AX, 2);
+                cpu->SetFlag(CpuInterface::CF, true);
+            }
+
+            break;
+        }
+
+        case 0x3f: // Read from file
+        {
+            int dosFd = cpu->GetReg16(CpuInterface::BX);
+            int bytes = cpu->GetReg16(CpuInterface::CX);
+
+            char* dstBuffer = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+
+            if (m_fdMap.find(dosFd) == m_fdMap.end())
+            {
+                printf("MsDos::Int21h() function 0x%02x invalid fd %d\n", func, dosFd);
+                cpu->SetReg16(CpuInterface::AX, 2);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            int fd = m_fdMap[dosFd];
+            int bytesRead = ::read(fd, dstBuffer, bytes);
+
+            printf("MsDos::Int21h() function 0x%02x read %d bytes from fd %d\n", func, bytesRead, dosFd);
+
+            cpu->SetReg16(CpuInterface::AX, bytesRead);
+            cpu->SetFlag(CpuInterface::CF, false);
+
+            break;
+        }
+
+        case 0x43: // Get / Set File Attributes
+        {
+            char *path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+
+            printf("MsDos::Int21h() function 0x%02x path '%s'\n", func, path);
+
+            cpu->SetReg16(CpuInterface::CX, 0);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
         case 0x44: // I/O Control for device (IOCTL)
         {
             uint8_t cmd = cpu->GetReg8(CpuInterface::AL);
@@ -165,6 +231,11 @@ void Dos::Int21h(CpuInterface* cpu)
                     cpu->SetReg16(CpuInterface::DX, devInfo);
                     cpu->SetFlag(CpuInterface::CF, false);
                 }
+                else if (m_fdMap.find(fd) != m_fdMap.end())
+                {
+                    cpu->SetReg16(CpuInterface::DX, 2);
+                    cpu->SetFlag(CpuInterface::CF, false);
+                }
                 else
                 {
                     cpu->SetReg16(CpuInterface::AX, 6);
@@ -172,6 +243,13 @@ void Dos::Int21h(CpuInterface* cpu)
 
                     printf("MsDos::Int21h() ioctl %d unkown fd %d!\n", cmd, fd);
                 }
+            }
+            else if (cmd == 1)
+            {
+                uint16_t fd      = cpu->GetReg16(CpuInterface::BX);
+                uint16_t devInfo = cpu->GetReg16(CpuInterface::DX);
+
+                printf("MsDos::Int21h() ioctl %d set device info fd %d info %04x\n", cmd, fd, devInfo);
             }
             else
             {
@@ -256,6 +334,11 @@ void Dos::SetPspSeg(uint16_t pspSeg)
    m_pspSeg = pspSeg;
    m_dtaSeg = pspSeg;
    m_dtaOff = 0x080;
+}
+
+void Dos::SetCwd(std::string const& cwd)
+{
+    m_cwd = cwd;
 }
 
 Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)

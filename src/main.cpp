@@ -34,6 +34,7 @@ int main(int argc, char **argv)
     dos->BuildEnv(envSeg, { "PATH=C:\\" }); // { "PATH=C:\\", "PROMPT=$P$G" }
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "C:\\WOLF\\WOLF3D.EXE");
     dos->SetPspSeg(pspSeg);
+    dos->SetCwd("./wolf");
 
     cpu->onSoftIrq =
         [dos, bios](CpuInterface *cpu, int irq)
@@ -41,6 +42,10 @@ int main(int argc, char **argv)
             if (irq == 0x21)
             {
                 dos->Int21h(cpu);
+            }
+            else if (irq == 0x2f) // XMS interrupt
+            {
+                // Do nothing
             }
             else if (irq == 0x10)
             {
@@ -135,7 +140,7 @@ int main(int argc, char **argv)
             [&running, cpu]
             {
                 printf("Running...\n");
-                cpu->Run(65536 * 16);
+                cpu->Run(65536 * 32);
             });
 
         sdl->MainLoop();

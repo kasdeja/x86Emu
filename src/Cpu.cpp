@@ -43,6 +43,8 @@ Cpu::Cpu(Memory& memory)
     m_vgaPlaneMask[1] = 0xff;
     m_vgaPlaneMask[2] = 0xff;
     m_vgaPlaneMask[3] = 0xff;
+
+    m_instructionCnt = 0;
 }
 
 Cpu::~Cpu()
@@ -254,16 +256,22 @@ inline uint32_t Cpu::Load32(std::size_t linearAddr)
 
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-//     printf("load %08lx val 0x%04x\n",
-//         linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+    if (linearAddr < 0x1000)
+    {
+        printf("load %08lx val 0x%04x\n",
+            linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+    }
 
     return *reinterpret_cast<uint16_t *>(m_memory + linearAddr);
 }
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-//     printf("load %08lx val 0x%02x\n",
-//         linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    if (linearAddr < 0x1000)
+    {
+        printf("load %08lx val 0x%02x\n",
+            linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    }
 
     return *reinterpret_cast<uint8_t *>(m_memory + linearAddr);
 }
@@ -1537,7 +1545,7 @@ void Cpu::Handle81h(uint8_t* ip)
 
 void Cpu::Handle83h(uint8_t* ip)
 {
-    Handle8xCommon(ip, static_cast<short>(*(ip + s_modRmInstLen[*ip] - 1)));
+    Handle8xCommon(ip, *reinterpret_cast<char *>(ip + s_modRmInstLen[*ip] - 1));
 }
 
 void Cpu::Handle8Fh(uint8_t* ip)
@@ -1644,8 +1652,6 @@ void Cpu::HandleF7h(uint8_t* ip)
         case 1:
             {
                 uint16_t result = ModRmLoad16(ip) & Imm16(ip + s_modRmInstLen[*ip] - 1);
-
-                printf("xxx mem %04x imm %04x\n", ModRmLoad16(ip), Imm16(ip + s_modRmInstLen[*ip] - 1));
 
                 SetLogicFlags16(result);
                 m_register[Register::IP] += 2;
@@ -2160,21 +2166,37 @@ void Cpu::ExecuteInstruction()
     ip = m_memory + m_register[Register::CS] * 16 + m_register[Register::IP];
     opcode = *ip++;
 
-    printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
-        m_register[Register::AX],
-        m_register[Register::BX],
-        m_register[Register::CX],
-        m_register[Register::DX],
-        m_register[Register::SI],
-        m_register[Register::DI],
-        m_register[Register::SP],
-        m_register[Register::BP],
-        m_register[Register::CS],
-        m_register[Register::DS],
-        m_register[Register::ES],
-        m_register[Register::SS]);
+    m_instructionCnt++;
 
-    printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+    if (m_register[Register::CS] == 0x149f && m_register[Register::IP] == 0x14cf)
+    {
+        Pop16();
+        Pop16();
+        char* ptr = reinterpret_cast<char*>(m_memory + m_register[Register::DS] * 16 + Pop16());
+
+        printf("_Quit: %s\n", ptr);
+        m_state |= State::InvalidOp;
+        return;
+    }
+
+//     if ((m_instructionCnt % 65536) == 0)
+//     {
+        printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
+            m_register[Register::AX],
+            m_register[Register::BX],
+            m_register[Register::CX],
+            m_register[Register::DX],
+            m_register[Register::SI],
+            m_register[Register::DI],
+            m_register[Register::SP],
+            m_register[Register::BP],
+            m_register[Register::CS],
+            m_register[Register::DS],
+            m_register[Register::ES],
+            m_register[Register::SS]);
+
+        printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+//     }
 
     switch(opcode)
     {
@@ -3142,7 +3164,8 @@ void Cpu::ExecuteInstruction()
             break;
 
         case 0x9d: // popf
-            m_register[Register::FLAG] = (Pop16() & ~Flag::Always0_mask) | Flag::Always1_mask;
+            //m_register[Register::FLAG] = (Pop16() & ~Flag::Always0_mask) | Flag::Always1_mask;
+            m_register[Register::FLAG] = (Pop16() & 0x0fff) | Flag::Always1_mask;
             m_register[Register::IP] += 1;
             RestoreLazyFlags();
             break;
@@ -3618,3 +3641,31 @@ void Cpu::ExecuteInstruction()
         m_state = 0;
     }
 }
+
+
+//     if (m_register[Register::CS] == 0x283e && (m_register[Register::IP] == 0x092b || m_register[Register::IP] == 0x00b6))
+//     {
+//         uint32_t linAddr = 0x47dc0;
+//
+//         for(int n = 0; n < 16; n++)
+//         {
+//             uint16_t* ptr = reinterpret_cast<uint16_t*>(m_memory + linAddr);
+//
+//             printf("linaddr 0x%06x\n", linAddr);
+//             printf("  start    0x%04x %d\n", ptr[0], ptr[0]);
+//             printf("  length   0x%04x %d\n", ptr[1], ptr[1]);
+//             printf("  attr     %04x\n", ptr[2]);
+//             printf("  usrptr   %04x\n", ptr[3]);
+//             printf("  next.off %04x\n", ptr[4]);
+//             printf("  next.seg %04x\n", ptr[5]);
+//             printf("\n");
+//
+//             linAddr = ptr[5] * 16 + ptr[4];
+//
+//             if (linAddr == 0)
+//                 break;
+//         }
+//
+// //         if (m_register[Register::IP] == 0x092b)
+// //             m_state |= State::InvalidOp;
+//     }

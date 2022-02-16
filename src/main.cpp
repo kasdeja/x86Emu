@@ -9,6 +9,8 @@
 #include "Bios.h"
 #include "Dos.h"
 #include "Cpu.h"
+#include "Pic.h"
+#include "Pit.h"
 #include "SDLInterface.h"
 
 int main(int argc, char **argv)
@@ -21,6 +23,8 @@ int main(int argc, char **argv)
     Bios*         bios   = new Bios(*memory, *vga);
     Dos*          dos    = new Dos(*memory);
     CpuInterface* cpu    = new Cpu(*memory);
+    Pic*          pic    = new Pic(*cpu);
+    Pit*          pit    = new Pit(*pic);
     SDLInterface* sdl    = new SDLInterface(vga);
 
     uint16_t envSeg   = 0x0ff0;
@@ -66,10 +70,17 @@ int main(int argc, char **argv)
         };
 
     cpu->onPortRead =
-        [vga](CpuInterface *cpu, uint16_t port, int size) -> uint32_t
+        [vga, pic, pit](CpuInterface *cpu, uint16_t port, int size) -> uint32_t
         {
             switch(port)
             {
+                case 0x20: case 0x21:
+                    return pic->PortRead(port);
+
+                case 0x40: case 0x41:
+                case 0x42: case 0x43:
+                    return pit->PortRead(port);
+
                 case 0x3c5:
                 case 0x3c9:
                 case 0x3cf:
@@ -84,10 +95,19 @@ int main(int argc, char **argv)
         };
 
     cpu->onPortWrite =
-        [vga](CpuInterface *cpu, uint16_t port, int size, uint32_t value)
+        [vga, pic, pit](CpuInterface *cpu, uint16_t port, int size, uint32_t value)
         {
             switch(port)
             {
+                case 0x20: case 0x21:
+                    pic->PortWrite(port, value);
+                    break;
+
+                case 0x40: case 0x41:
+                case 0x42: case 0x43:
+                    pit->PortWrite(port, value);
+                    break;
+
                 case 0x3c4: case 0x3c5:
                 case 0x3ce: case 0x3cf:
                 case 0x3d4: case 0x3d5:
@@ -128,6 +148,26 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::ES, pspSeg);
     cpu->SetReg16(CpuInterface::AX, 2);
 
+    auto runEmulator =
+        [cpu, pic, pit](int64_t usec)
+        {
+            int64_t nps = 1000000000;               // nanoseconds per second
+            int64_t ips = 200000;                   // instructions per second
+            int     ite = (ips * usec) / 1000000;   // instructions to execute
+
+            for(int n = 0; n < ite; n += 5000)
+            {
+                int itr = ite - n;
+
+                if (itr > 5000)
+                    itr = 5000;
+
+                cpu->Run(itr);
+                pit->Process((nps * itr) / ips);
+                pic->HandleInterrupts();
+            }
+        };
+
     // Start main loop
     std::atomic<bool> running;
     std::thread       thread;
@@ -137,10 +177,10 @@ int main(int argc, char **argv)
         running = true;
 
         thread = std::thread(
-            [&running, cpu]
+            [&running, cpu, runEmulator]
             {
                 printf("Running...\n");
-                cpu->Run(65536 * 32);
+                runEmulator(10 * 1000 * 1000);   // 10 sec
             });
 
         sdl->MainLoop();

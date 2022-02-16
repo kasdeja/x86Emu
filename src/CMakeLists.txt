@@ -4,6 +4,8 @@ add_executable(x86Emu
     Disasm.cpp
     Dos.cpp
     Memory.cpp
+    Pic.cpp
+    Pit.cpp
     SDLInterface.cpp
     Vga.cpp
     main.cpp

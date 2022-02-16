@@ -179,6 +179,28 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x3e: // Close file
+        {
+            int dosFd = cpu->GetReg16(CpuInterface::BX);
+
+            if (m_fdMap.find(dosFd) == m_fdMap.end())
+            {
+                printf("MsDos::Int21h() function 0x%02x invalid fd %d\n", func, dosFd);
+                cpu->SetReg16(CpuInterface::AX, 2);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            printf("MsDos::Int21h() function 0x%02x close fd %d\n", func, dosFd);
+
+            int fd = m_fdMap[dosFd];
+
+            ::close(fd);
+            m_fdMap.erase(dosFd);
+
+            break;
+        }
+
         case 0x3f: // Read from file
         {
             int dosFd = cpu->GetReg16(CpuInterface::BX);
@@ -200,6 +222,35 @@ void Dos::Int21h(CpuInterface* cpu)
             printf("MsDos::Int21h() function 0x%02x read %d bytes from fd %d\n", func, bytesRead, dosFd);
 
             cpu->SetReg16(CpuInterface::AX, bytesRead);
+            cpu->SetFlag(CpuInterface::CF, false);
+
+            break;
+        }
+
+        case 0x42: // Move File Pointer Using Handle
+        {
+            int dosFd    = cpu->GetReg16(CpuInterface::BX);
+            int seekType = cpu->GetReg8(CpuInterface::AL);
+            int offset   = (cpu->GetReg16(CpuInterface::CX) << 16) + cpu->GetReg16(CpuInterface::DX);
+
+            if (m_fdMap.find(dosFd) == m_fdMap.end())
+            {
+                printf("MsDos::Int21h() function 0x%02x invalid fd %d\n", func, dosFd);
+                cpu->SetReg16(CpuInterface::AX, 2);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            printf("MsDos::Int21h() function 0x%02x offset %d seekType %d fd %d\n", func, offset, seekType, dosFd);
+
+            int fd = m_fdMap[dosFd];
+
+                 if (seekType == 0)     offset = ::lseek(fd, offset, SEEK_SET);
+            else if (seekType == 1)     offset = ::lseek(fd, offset, SEEK_CUR);
+            else if (seekType == 2)     offset = ::lseek(fd, offset, SEEK_END);
+
+            cpu->SetReg16(CpuInterface::DX, offset >> 16);
+            cpu->SetReg16(CpuInterface::AX, offset & 0xffff);
             cpu->SetFlag(CpuInterface::CF, false);
 
             break;

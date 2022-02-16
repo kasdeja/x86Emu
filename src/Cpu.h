@@ -29,6 +29,7 @@ public:
 
     void Run(int nCycles) override;
     void Interrupt(int num) override;
+    bool HardwareInterrupt(int num) override;
     void VgaPlaneMode(bool chain4, uint8_t planeMask) override;
 
 private:
@@ -206,6 +207,7 @@ private:
     void HandleC7h(uint8_t* ip);
     void HandleF6h(uint8_t* ip);
     void HandleF7h(uint8_t* ip);
+    void HandleFEh(uint8_t* ip);
     void HandleFFh(uint8_t* ip);
     void HandleShift16(uint8_t* ip, uint8_t shift);
     void HandleShift8(uint8_t* ip, uint8_t shift);

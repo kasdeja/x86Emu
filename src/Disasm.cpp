@@ -427,6 +427,27 @@ std::string Disasm::HandleF7h(uint8_t* ip, int& length)
     return "";
 }
 
+std::string Disasm::HandleFEh(uint8_t* ip)
+{
+    uint8_t modrm = *ip;
+    uint8_t mod = modrm >> 6;
+    uint8_t op  = (modrm >> 3) & 0x07;
+
+    switch(op)
+    {
+        case 0:
+            return std::string("inc ") + ModRm8(ip);
+
+        case 1:
+            return std::string("dec ") + ModRm8(ip);
+
+        case 7:
+            return "Invalid Op";
+    }
+
+    return "";
+}
+
 std::string Disasm::HandleFFh(uint8_t* ip)
 {
     uint8_t modrm = *ip;
@@ -503,7 +524,7 @@ std::string Disasm::Process()
             break;
 
         case 0x05: // add ax, imm16
-            instr  = "add al, " + Imm16(ip);
+            instr  = "add ax, " + Imm16(ip);
             length = 3;
             break;
 
@@ -1198,6 +1219,26 @@ std::string Disasm::Process()
             length = 2;
             break;
 
+        case 0xe4: // in al, imm8
+            instr = "in al, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0xe5: // in ax, imm8
+            instr = "in ax, " + Imm8(ip);
+            length = 2;
+            break;
+
+        case 0xe6: // out imm8, al
+            instr = "out " + Imm8(ip) + ", al";
+            length = 2;
+            break;
+
+        case 0xe7: // out imm8, ax
+            instr = "out " + Imm8(ip) + ", ax";
+            length = 2;
+            break;
+
         case 0xe8: // call rel16
             instr = "call " + Rel16(ip, offset + 3);
             length = 3;
@@ -1302,6 +1343,11 @@ std::string Disasm::Process()
         case 0xfd:
             instr = "std";
             length = 1;
+            break;
+
+        case 0xfe:
+            instr = HandleFEh(ip);
+            length = s_modRmInstLen[*ip];
             break;
 
         case 0xff:

@@ -31,6 +31,11 @@ namespace
             return sin(x * M_PI) / (x * M_PI);
     }
 
+    uint8_t maxBright(uint8_t value)
+    {
+        return value > 63 ? 63 : value;
+    }
+
     void BlackmanNuttallWindow(double* window, int size)
     {
         double a0 = 0.3635819;
@@ -290,9 +295,9 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
         m_colorMapWriteIdx = (m_colorMapWriteIdx + 1) % 768;
 
         m_colorMap[idx] =
-            (static_cast<uint64_t>(m_luminance[m_vgaColorMap[idx][0]]) << 32) +
-            (static_cast<uint64_t>(m_luminance[m_vgaColorMap[idx][1]]) << 16) +
-            (static_cast<uint64_t>(m_luminance[m_vgaColorMap[idx][2]]));
+            (static_cast<uint64_t>(m_luminance[maxBright(m_vgaColorMap[idx][0])]) << 32) +
+            (static_cast<uint64_t>(m_luminance[maxBright(m_vgaColorMap[idx][1])]) << 16) +
+            (static_cast<uint64_t>(m_luminance[maxBright(m_vgaColorMap[idx][2])]));
     }
     else if (port == 0x3c4) // Sequencer register index
     {
@@ -429,6 +434,11 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
     {
         printf("Unhandled VGA write port = 0x%04x, value = 0x%02x\n", port, value);
     }
+}
+
+uint8_t* Vga::GetColorMap()
+{
+    return &m_vgaColorMap[0][0];
 }
 
 void Vga::SetMode(Vga::Mode mode)

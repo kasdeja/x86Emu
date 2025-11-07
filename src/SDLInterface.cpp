@@ -2,16 +2,19 @@
 #include <unistd.h>
 #include <SDL2/SDL.h>
 #include "SDLInterface.h"
+#include "MemoryView.h"
 #include "Vga.h"
 
 // constructor & destructor
-SDLInterface::SDLInterface(Vga *vga)
-    : m_vga(vga)
+SDLInterface::SDLInterface(Vga *vga, MemoryView *memoryView)
+    : m_vga(vga), m_memoryView(memoryView)
 {
 }
 
 SDLInterface::~SDLInterface()
 {
+    m_vga = nullptr;
+    m_memoryView = nullptr;
 }
 
 // public methods
@@ -39,6 +42,22 @@ void SDLInterface::MainLoop()
         );
 
     SDL_Surface *surface = SDL_GetWindowSurface(window);
+
+    SDL_Window *mvWindow = nullptr;
+    SDL_Surface *mvSurface = nullptr;
+
+    if (m_memoryView)
+    {
+        mvWindow =
+            SDL_CreateWindow(
+                "Memory View",
+                SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                1344, 1088,
+                SDL_WINDOW_SHOWN
+            );
+
+        mvSurface = SDL_GetWindowSurface(mvWindow);
+    }
 
     printf("w %d h %d pitch %d\n", surface->w, surface->h, surface->pitch);
     printf("bits per pixel %d\n", surface->format->BitsPerPixel);
@@ -77,10 +96,18 @@ void SDLInterface::MainLoop()
         m_vga->DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h, surface->pitch);
         SDL_UpdateWindowSurface(window);
 
+        if (m_memoryView)
+        {
+            m_memoryView->DrawRamDump(reinterpret_cast<uint8_t *>(mvSurface->pixels), mvSurface->w, mvSurface->h, mvSurface->pitch);
+            SDL_UpdateWindowSurface(mvWindow);
+        }
+
         // Do some heavy work
         ::usleep(10 * 1000);
     }
 
     SDL_DestroyWindow(window);
-}
 
+    if (mvWindow)
+        SDL_DestroyWindow(mvWindow);
+}

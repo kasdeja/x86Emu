@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include "Memory.h"
+#include "MemoryView.h"
 #include "Vga.h"
 #include "Bios.h"
 #include "Dos.h"
@@ -18,24 +19,31 @@ int main(int argc, char **argv)
     printf("x86emu v0.1\n\n");
 
     // Initialize emulator
-    Memory*       memory = new Memory(4096);
-    Vga*          vga    = new Vga(*memory);
-    Bios*         bios   = new Bios(*memory, *vga);
-    Dos*          dos    = new Dos(*memory);
-    CpuInterface* cpu    = new Cpu(*memory);
-    Pic*          pic    = new Pic(*cpu);
-    Pit*          pit    = new Pit(*pic);
-    SDLInterface* sdl    = new SDLInterface(vga);
+    Memory*       memory     = new Memory(4096);
+    Vga*          vga        = new Vga(*memory);
+    MemoryView*   memoryView = new MemoryView(memory, vga);
+    Bios*         bios       = new Bios(*memory, *vga);
+    Dos*          dos        = new Dos(*memory);
+    CpuInterface* cpu        = new Cpu(*memory);
+    Pic*          pic        = new Pic(*cpu);
+    Pit*          pit        = new Pit(*pic);
+    SDLInterface* sdl        = new SDLInterface(vga, memoryView);
 
-    uint16_t envSeg   = 0x0ff0;
-    uint16_t pspSeg   = 0x1000;
-    uint16_t imageSeg = 0x1010;
+    //uint16_t envSeg   = 0x0ff0;
+    //uint16_t pspSeg   = 0x1000;
+    //uint16_t imageSeg = 0x1010;
+    uint16_t envSeg   = 0x07ca;
+    uint16_t pspSeg   = 0x0813;
+    uint16_t imageSeg = 0x0823;
 
-    auto imageInfo = dos->LoadExeFromFile(0x1010, "wolf/WOLF3D.EXE");
+    //auto imageInfo = dos->LoadExeFromFile(0x1010, "wolf/WOLF3D.EXE");
+    auto imageInfo = dos->LoadExeFromFile(0x0823, "wolf/FPTEST.EXE");
 
-    uint16_t nextSeg = 0xa000;// imageSeg + (imageInfo.imageSize >> 4);
+    //uint16_t nextSeg = 0xa000;// imageSeg + (imageInfo.imageSize >> 4);
+    uint16_t nextSeg = 0x9fff;// imageSeg + (imageInfo.imageSize >> 4);
 
-    dos->BuildEnv(envSeg, { "PATH=C:\\" }); // { "PATH=C:\\", "PROMPT=$P$G" }
+    //dos->BuildEnv(envSeg, { "PATH=C:\\" }); // { "PATH=C:\\", "PROMPT=$P$G" }
+    dos->BuildEnv(envSeg, { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "C:\\WOLF\\WOLF3D.EXE");
     dos->SetPspSeg(pspSeg);
     dos->SetCwd("./wolf");
@@ -146,7 +154,7 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::SP, imageInfo.initSP);
     cpu->SetReg16(CpuInterface::DS, pspSeg);
     cpu->SetReg16(CpuInterface::ES, pspSeg);
-    cpu->SetReg16(CpuInterface::AX, 2);
+    cpu->SetReg16(CpuInterface::AX, 0); // was 2, why?
 
     auto runEmulator =
         [cpu, pic, pit](int64_t usec)
@@ -180,7 +188,7 @@ int main(int argc, char **argv)
             [&running, cpu, runEmulator]
             {
                 printf("Running...\n");
-                runEmulator(10 * 1000 * 1000);   // 10 sec
+                runEmulator(40 * 1000 * 1000);   // 10 sec
             });
 
         sdl->MainLoop();
@@ -193,6 +201,7 @@ int main(int argc, char **argv)
     delete cpu;
     delete dos;
     delete bios;
+    delete memoryView;
     delete vga;
     delete memory;
 

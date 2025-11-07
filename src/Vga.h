@@ -26,6 +26,8 @@ public:
     uint8_t PortRead(uint16_t port);
     void    PortWrite(uint16_t port, uint8_t value);
 
+    uint8_t* GetColorMap();
+
     void SetMode(Mode mode);
     void DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride);
 

@@ -4,6 +4,7 @@ add_executable(x86Emu
     Disasm.cpp
     Dos.cpp
     Memory.cpp
+    MemoryView.cpp
     Pic.cpp
     Pit.cpp
     SDLInterface.cpp

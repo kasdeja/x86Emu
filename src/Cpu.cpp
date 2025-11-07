@@ -34,7 +34,12 @@ Cpu::Cpu(Memory& memory)
     , m_vgaMemory(memory.GetVgaMem())
     , m_rMemory  (memory)
 {
-    std::fill(m_register, m_register + 16, 0);
+    //std::fill(m_register, m_register + 16, 0);
+    for(int n = 0; n < 16; n++)
+    {
+        m_register[n] = 0;
+    }
+
     m_register[Register::FLAG] = Flag::IF_mask | Flag::Always1_mask;
 
     m_result  = 0;
@@ -266,8 +271,8 @@ inline uint16_t Cpu::Imm16(uint8_t* ip)
 
 inline uint32_t Cpu::Load32(std::size_t linearAddr)
 {
-//     printf("load %08lx val 0x%08x\n",
-//         linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
+     printf("load %08lx val 0x%08x\n",
+         linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint32_t *>(m_memory + linearAddr);
 }
@@ -276,8 +281,8 @@ inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
 //     if (linearAddr < 0x1000)
 //     {
-//         printf("load %08lx val 0x%04x\n",
-//             linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+         printf("load %08lx val 0x%04x\n",
+             linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 //     }
 
     return *reinterpret_cast<uint16_t *>(m_memory + linearAddr);
@@ -287,8 +292,8 @@ inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
 //     if (linearAddr < 0x1000)
 //     {
-//         printf("load %08lx val 0x%02x\n",
-//             linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+         printf("load %08lx val 0x%02x\n",
+             linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 //     }
 
     return *reinterpret_cast<uint8_t *>(m_memory + linearAddr);
@@ -298,8 +303,8 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 {
 //     if (linearAddr >= 0x5a400 && linearAddr <= 0x5a4ff)
 //     {
-//         printf("store %08lx val 0x%04x (was 0x%04x)\n",
-//             linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+         printf("store %08lx val 0x%04x (was 0x%04x)\n",
+             linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 //     }
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
@@ -339,8 +344,8 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 
 inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 {
-//     printf("store %08lx val 0x%02x (was 0x%02x)\n",
-//         linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    printf("store %08lx val 0x%02x (was 0x%02x)\n",
+        linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -384,7 +389,7 @@ inline uint16_t Cpu::Pop16()
 
 inline bool Cpu::GetCF()
 {
-    return static_cast<uint32_t>(m_auxbits) >> Aux::CF_bit;
+    return (static_cast<uint32_t>(m_auxbits) >> Aux::CF_bit) & 1;
 }
 
 inline bool Cpu::GetPF()
@@ -1654,10 +1659,93 @@ void Cpu::HandleF6h(uint8_t* ip)
             break;
 
         case 4: // mul r/m8
+            {
+                uint16_t result = (m_register[Register::AX] & 0xff) * ModRmLoad8(ip);
+
+                if (result & 0xff00)
+                {
+                    SetOF_CF(true, true);
+                }
+                else
+                {
+                    SetOF_CF(false, false);
+                }
+
+                m_register[Register::AX] = result;
+            }
+            break;
+
         case 5: // imul r/m8
+            {
+                int16_t result = static_cast<char>(m_register[Register::AX] & 0xff) * static_cast<char>(ModRmLoad8(ip));
+
+                if (static_cast<char>(result) == result)
+                {
+                    SetOF_CF(false, false);
+                }
+                else
+                {
+                    SetOF_CF(true, true);
+                }
+
+                m_register[Register::AX] = result;
+            }
+            break;
+
         case 6: // div r/m8
+        {
+            uint8_t src = ModRmLoad8(ip);
+
+            if (src == 0)
+            {
+                printf("Divide by zero\n");
+                m_state |= State::InvalidOp;
+                break;
+            }
+
+            uint16_t val  = m_register[Register::AX];
+            uint16_t result = val / src;
+            uint16_t remainder = val % src;
+
+            printf("DIV val %04x result %04x remainder %04x\n", val, result, remainder);
+
+            if (result > 0xff)
+            {
+                printf("Divide error\n");
+                m_state |= State::InvalidOp;
+                break;
+            }
+
+            m_register[Register::AX] = (remainder << 8) | result;
+        }
+        break;
+
         case 7: // idiv r/m8
-            m_state |= State::InvalidOp;
+        {
+            char src = ModRmLoad8(ip);
+
+            if (src == 0)
+            {
+                printf("Divide by zero\n");
+                m_state |= State::InvalidOp;
+                break;
+            }
+
+            short val  = m_register[Register::AX];
+            int result = val / src;
+            int remainder = val % src;
+
+            if (result > 127 || result < -128)
+            {
+                printf("Divide error\n");
+                m_state |= State::InvalidOp;
+                break;
+            }
+
+            m_register[Register::AX] = (remainder << 8) | (result & 0xff);
+        }
+        break;
+
             break;
     }
 }
@@ -1734,8 +1822,59 @@ void Cpu::HandleF7h(uint8_t* ip)
             break;
 
         case 6: // div r/m16
+            {
+                uint32_t src = ModRmLoad16(ip);
+
+                if (src == 0)
+                {
+                    printf("Divide by zero\n");
+                    m_state |= State::InvalidOp;
+                    break;
+                }
+
+                uint32_t val  = (m_register[Register::DX] << 16) | m_register[Register::AX];
+                uint32_t result = val / src;
+                uint32_t remainder = val % src;
+
+                printf("DIV val %08x result %08x remainder %08x\n", val, result, remainder);
+
+                if (result > 0xffff)
+                {
+                    printf("Divide error\n");
+                    m_state |= State::InvalidOp;
+                    break;
+                }
+
+                m_register[Register::AX] = result;
+                m_register[Register::DX] = remainder;
+            }
+            break;
+
         case 7: // idiv r/m16
-            m_state |= State::InvalidOp;
+            {
+                short src = ModRmLoad16(ip);
+
+                if (src == 0)
+                {
+                    printf("Divide by zero\n");
+                    m_state |= State::InvalidOp;
+                    break;
+                }
+
+                int val  = (m_register[Register::DX] << 16) | m_register[Register::AX];
+                int result = val / src;
+                int remainder = val % src;
+
+                if (result > 32767 || result < -32768)
+                {
+                    printf("Divide error\n");
+                    m_state |= State::InvalidOp;
+                    break;
+                }
+
+                m_register[Register::AX] = result;
+                m_register[Register::DX] = remainder;
+            }
             break;
     }
 }
@@ -1889,11 +2028,11 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
                     if (shift == 0)
                         return op;
 
-                    uint8_t  shiftTmp = shift % 17;
+                    uint8_t  shiftTmp = (shift & 0x1f) % 17;
                     uint16_t result;
                     bool of, cf;
 
-                    result = (op << shiftTmp) | (GetCF() << (shiftTmp - 1)) | (op >> (17 - shiftTmp));
+                    result = (op << shiftTmp) | (static_cast<uint16_t>(GetCF()) << (shiftTmp - 1)) | (op >> (17 - shiftTmp));
                     cf     = (op >> (16 - shiftTmp)) & 1;
                     of     = cf ^ (result >> 15);
 
@@ -1911,12 +2050,12 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
                     if (shift == 0)
                         return op;
 
-                    uint8_t  shiftTmp = shift % 17;
+                    uint8_t  shiftTmp = (shift & 0x1f) % 17;
                     uint16_t result;
                     bool of, cf;
 
-                    of     = cf ^ (op >> 15);
-                    result = (op >> shiftTmp) | (GetCF() << (16 - shiftTmp)) | (op << (17 - shiftTmp));
+                    of     = GetCF() ^ (op >> 15);
+                    result = (op >> shiftTmp) | (static_cast<uint16_t>(GetCF()) << (16 - shiftTmp)) | (op << (17 - shiftTmp));
                     cf     = (op >> (shiftTmp - 1)) & 1;
 
                     SetLogicFlags16(result);
@@ -1940,7 +2079,8 @@ void Cpu::HandleShift16(uint8_t* ip, uint8_t shift)
                     if (shift <= 16)
                     {
                         result = op << shift;
-                        cf     = (result >> (16 - shift)) & 1;
+                        //cf     = (result >> (16 - shift)) & 1;
+                        cf     = (op >> (16 - shift)) & 1;
                         of     = cf ^ (op >> 15);
                     }
                     else
@@ -2080,7 +2220,7 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                     uint8_t result;
                     bool of, cf;
 
-                    result = (op << shiftTmp) | (GetCF() << (shiftTmp - 1)) | (op >> (9 - shiftTmp));
+                    result = (op << shiftTmp) | (static_cast<uint8_t>(GetCF()) << (shiftTmp - 1)) | (op >> (9 - shiftTmp));
                     cf     = (op >> (8 - shiftTmp)) & 1;
                     of     = cf ^ (result >> 7);
 
@@ -2102,8 +2242,8 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                     uint8_t result;
                     bool of, cf;
 
-                    of     = cf ^ (op >> 7);
-                    result = (op >> shiftTmp) | (GetCF() << (8 - shiftTmp)) | (op << (9 - shiftTmp));
+                    of     = GetCF() ^ (op >> 7);
+                    result = (op >> shiftTmp) | (static_cast<uint8_t>(GetCF()) << (8 - shiftTmp)) | (op << (9 - shiftTmp));
                     cf     = (op >> (shiftTmp - 1)) & 1;
 
                     SetLogicFlags8(result);
@@ -2127,7 +2267,8 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                     if (shift <= 8)
                     {
                         result = op << shift;
-                        cf     = (result >> (8 - shift)) & 1;
+                        //cf     = (result >> (8 - shift)) & 1;
+                        cf     = (op >> (8 - shift)) & 1;
                         of     = cf ^ (op >> 7);
                     }
                     else
@@ -2886,8 +3027,16 @@ void Cpu::ExecuteInstruction()
 
         case 0x40: case 0x41: case 0x42: case 0x43: // inc reg16
         case 0x44: case 0x45: case 0x46: case 0x47:
-            m_register[opcode - 0x40]++;
-            m_register[Register::IP] += 1;
+            {
+                uint16_t op1 = m_register[opcode - 0x40];
+                uint16_t result = ++m_register[opcode - 0x40];
+                bool oldCF = GetCF();
+
+                SetAddFlags16(op1, 1, result);
+                SetCF(oldCF);
+
+                m_register[Register::IP] += 1;
+            }
             break;
 
         case 0x48: case 0x49: case 0x4a: case 0x4b: // dec reg16
@@ -3002,14 +3151,14 @@ void Cpu::ExecuteInstruction()
                 m_register[Register::IP] += offset;
             break;
 
-        case 0x76: // jna rel8
+        case 0x76: // jbe / jna rel8
             offset = Disp8(ip);
             m_register[Register::IP] += 2;
             if (GetCF() || GetZF())
                 m_register[Register::IP] += offset;
             break;
 
-        case 0x77: // ja rel8
+        case 0x77: // jnbe / ja rel8
             offset = Disp8(ip);
             m_register[Register::IP] += 2;
             if (!GetCF() && !GetZF())
@@ -3061,14 +3210,14 @@ void Cpu::ExecuteInstruction()
         case 0x7e: // jle rel8
             offset = Disp8(ip);
             m_register[Register::IP] += 2;
-            if (GetZF() || GetSF() != GetOF())
+            if (GetZF() || (GetSF() != GetOF()))
                 m_register[Register::IP] += offset;
             break;
 
         case 0x7f: // jg rel8
             offset = Disp8(ip);
             m_register[Register::IP] += 2;
-            if (!GetZF() && GetSF() == GetOF())
+            if (!GetZF() && (GetSF() == GetOF()))
                 m_register[Register::IP] += offset;
             break;
 
@@ -3422,6 +3571,7 @@ void Cpu::ExecuteInstruction()
 
                 *Reg16(*ip) = segmentOffset &  0xffff;
                 m_register[Register::DS] = segmentOffset >> 16;
+                m_segmentBase = m_register[Register::DS] * 16;
             }
             m_register[Register::IP] += s_modRmInstLen[*ip];
             break;
@@ -3679,7 +3829,7 @@ void Cpu::ExecuteInstruction()
             break;
 
         default:
-            printf("Invalid opcode 0x%02x\n", *(ip - 1));
+            //printf("Invalid opcode 0x%02x\n", *(ip - 1));
             m_state |= State::InvalidOp;
             break;
     }
@@ -3687,7 +3837,10 @@ void Cpu::ExecuteInstruction()
     if (m_state)
     {
         if (m_state & State::InvalidOp)
+        {
+            printf("Invalid opcode 0x%02x\n", *(ip - 1));
             return;
+        }
 
         if (m_state & State::SegmentOverride)
         {

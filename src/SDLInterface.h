@@ -2,12 +2,13 @@
 #define X86EMU_SDL_INTERFACE
 
 class Vga;
+class MemoryView;
 
 class SDLInterface
 {
 public:
     // constructor & destructor
-    SDLInterface(Vga *vga);
+    SDLInterface(Vga *vga, MemoryView *memoryView);
     ~SDLInterface();
 
     // public methods
@@ -16,6 +17,7 @@ public:
 
 private:
     Vga *m_vga;
+    MemoryView *m_memoryView;
 };
 
 #endif /* X86EMU_SDL_INTERFACE */

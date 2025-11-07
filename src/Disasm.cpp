@@ -1172,6 +1172,11 @@ std::string Disasm::Process()
         case 0xcd: // int imm8
             instr = "int " + Imm8(ip);
             length = 2;
+            // FP hack
+            if (*ip > 0x30 && *ip < 0x3f)
+            {
+                length += 6;
+            }
             break;
 
         case 0xcf: // iret

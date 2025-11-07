@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -92,6 +93,8 @@ Dos::Dos(Memory& memory)
     : m_memory(memory.GetMem())
     , m_lastFd(4)
 {
+    m_fdMap[1] = 1;
+    m_fdMap[2] = 1; //2;
 }
 
 Dos::~Dos()
@@ -227,6 +230,46 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x40: // Write to file
+        {
+            int dosFd = cpu->GetReg16(CpuInterface::BX);
+            int bytes = cpu->GetReg16(CpuInterface::CX);
+
+            char* srcBuffer = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+
+            if (m_fdMap.find(dosFd) == m_fdMap.end())
+            {
+                printf("MsDos::Int21h() function 0x%02x invalid fd %d\n", func, dosFd);
+                cpu->SetReg16(CpuInterface::AX, 2);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            int bytesWritten;
+
+            if (dosFd != 1 && dosFd != 2)
+            {
+                int fd = m_fdMap[dosFd];
+
+                bytesWritten = ::write(fd, srcBuffer, bytes);
+                printf("MsDos::Int21h() function 0x%02x write %d bytes to fd %d\n", func, bytesWritten, dosFd);
+            }
+            else
+            {
+                char buff[1024];
+
+                ::memcpy(buff, srcBuffer, bytes);
+                buff[bytes] = 0;
+                printf("MsDos::Int21h() function 0x%02x write %d bytes to fd %d '%s'\n", func, bytesWritten, dosFd, buff);
+
+                bytesWritten = bytes;
+            }
+
+            cpu->SetReg16(CpuInterface::AX, bytesWritten);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
         case 0x42: // Move File Pointer Using Handle
         {
             int dosFd    = cpu->GetReg16(CpuInterface::BX);
@@ -339,6 +382,10 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x4c: // Exit
+            ::exit(-1);
+            break;
+
         default:
             printf("MsDos::Int21h() function 0x%02x not implemented yet!\n", func);
             break;
@@ -350,16 +397,34 @@ uint16_t Dos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
     char*    env = reinterpret_cast<char *>(m_memory + envSeg * 16);
     uint32_t envSize = 0;
 
+    char *bk = env;
+
     for(auto const& var : envVars)
     {
         std::size_t len = var.size();
 
         ::strcpy(env, var.c_str());
-        env[len + 2] = 0;
 
         env     += len + 1;
         envSize += len + 1;
     }
+
+    *env++ = 0;
+    *env++ = 1;
+    *env++ = 0;
+    ::strcpy(env, "C:\\OBJ\\FPTEST.EXE");
+
+    for(int n = 0; n < 256; n++)
+    {
+        printf("%02x ", bk[n]);
+    }
+    printf("\n");
+    for(int n = 0; n < 256; n++)
+    {
+        printf("%c ", bk[n]);
+    }
+    printf("\n");
+
 
     return envSeg + (((envSize + 16) & (~15)) >> 4);
 }
@@ -376,8 +441,8 @@ void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std
     psp->nextSeg = nextSeg;
     psp->envSeg  = envSeg;
 
-    psp->cmdTailLength = cmd.size();
-    ::strcpy(psp->cmdTail, cmd.c_str());
+    psp->cmdTailLength = 0x00; //cmd.size();
+    //::strcpy(psp->cmdTail, cmd.c_str());
 }
 
 void Dos::SetPspSeg(uint16_t pspSeg)

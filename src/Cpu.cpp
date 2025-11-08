@@ -1890,7 +1890,13 @@ void Cpu::HandleFEh(uint8_t* ip)
             ModRmModifyOpNoReg8(ip,
                 [this](uint8_t op)
                 {
-                    return op + 1;
+                    uint8_t result = op + 1;
+                    bool oldCF = GetCF();
+
+                    SetAddFlags8(op, 1, result);
+                    SetCF(oldCF);
+
+                    return result;
                 });
             break;
 
@@ -1898,7 +1904,13 @@ void Cpu::HandleFEh(uint8_t* ip)
             ModRmModifyOpNoReg8(ip,
                 [this](uint8_t op)
                 {
-                    return op - 1;
+                    uint8_t result = op - 1;
+                    bool oldCF = GetCF();
+
+                    SetSubFlags8(op, 1, result);
+                    SetCF(oldCF);
+
+                    return result;
                 });
             break;
 
@@ -1919,7 +1931,13 @@ void Cpu::HandleFFh(uint8_t* ip)
             ModRmModifyOpNoReg16(ip,
                 [this](uint16_t op)
                 {
-                    return op + 1;
+                    uint16_t result = ++op;
+                    bool oldCF = GetCF();
+
+                    SetAddFlags16(op, 1, result);
+                    SetCF(oldCF);
+
+                    return result;
                 });
             break;
 
@@ -1927,7 +1945,13 @@ void Cpu::HandleFFh(uint8_t* ip)
             ModRmModifyOpNoReg16(ip,
                 [this](uint16_t op)
                 {
-                    return op - 1;
+                    uint16_t result = --op;
+                    bool oldCF = GetCF();
+
+                    SetSubFlags16(op, 1, result);
+                    SetCF(oldCF);
+
+                    return result;
                 });
             break;
 
@@ -2267,7 +2291,6 @@ void Cpu::HandleShift8(uint8_t* ip, uint8_t shift)
                     if (shift <= 8)
                     {
                         result = op << shift;
-                        //cf     = (result >> (8 - shift)) & 1;
                         cf     = (op >> (8 - shift)) & 1;
                         of     = cf ^ (op >> 7);
                     }
@@ -3041,8 +3064,16 @@ void Cpu::ExecuteInstruction()
 
         case 0x48: case 0x49: case 0x4a: case 0x4b: // dec reg16
         case 0x4c: case 0x4d: case 0x4e: case 0x4f:
-            m_register[opcode - 0x48]--;
-            m_register[Register::IP] += 1;
+            {
+                uint16_t op1 = m_register[opcode - 0x48];
+                uint16_t result = --m_register[opcode - 0x48];
+                bool oldCF = GetCF();
+
+                SetSubFlags16(op1, 1, result);
+                SetCF(oldCF);
+
+                m_register[Register::IP] += 1;
+            }
             break;
 
         case 0x50: case 0x51: case 0x52: case 0x53: // push reg16

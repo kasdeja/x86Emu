@@ -30,8 +30,8 @@ public:
     // public methods
     void Int21h(CpuInterface *cpu);
 
-    uint16_t  BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars);
-    void      BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd);
+    uint16_t  BuildEnv(uint16_t envSeg, std::string cmd, const std::vector<std::string> &envVars);
+    void      BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &args);
     void      SetPspSeg(uint16_t pspSeg);
     void      SetCwd(std::string const& cwd);
 

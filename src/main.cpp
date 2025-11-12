@@ -29,22 +29,21 @@ int main(int argc, char **argv)
     Pit*          pit        = new Pit(*pic);
     SDLInterface* sdl        = new SDLInterface(vga, memoryView);
 
-    //uint16_t envSeg   = 0x0ff0;
-    //uint16_t pspSeg   = 0x1000;
-    //uint16_t imageSeg = 0x1010;
-    uint16_t envSeg   = 0x07ca;
-    uint16_t pspSeg   = 0x0813;
-    uint16_t imageSeg = 0x0823;
+    uint16_t envSeg   = 0x0ff0;
+    uint16_t pspSeg   = 0x1000;
+    uint16_t imageSeg = 0x1010;
+    //uint16_t envSeg   = 0x07ca;
+    //uint16_t pspSeg   = 0x0813;
+    //uint16_t imageSeg = 0x0823;
+    uint16_t nextSeg  = 0x9fff;
 
-    //auto imageInfo = dos->LoadExeFromFile(0x1010, "wolf/WOLF3D.EXE");
-    auto imageInfo = dos->LoadExeFromFile(0x0823, "wolf/FPTEST.EXE");
+    //dos->BuildEnv(envSeg, { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
+    //auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
 
-    //uint16_t nextSeg = 0xa000;// imageSeg + (imageInfo.imageSize >> 4);
-    uint16_t nextSeg = 0x9fff;// imageSeg + (imageInfo.imageSize >> 4);
+    dos->BuildEnv(envSeg, "C:\\WOLF\\WOLF3D.EXE", { "PATH=C:\\" });
+    auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/WOLF3D.EXE");
 
-    //dos->BuildEnv(envSeg, { "PATH=C:\\" }); // { "PATH=C:\\", "PROMPT=$P$G" }
-    dos->BuildEnv(envSeg, { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
-    dos->BuildPsp(pspSeg, envSeg, nextSeg, "C:\\WOLF\\WOLF3D.EXE");
+    dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
     dos->SetPspSeg(pspSeg);
     dos->SetCwd("./wolf");
 
@@ -188,7 +187,7 @@ int main(int argc, char **argv)
             [&running, cpu, runEmulator]
             {
                 printf("Running...\n");
-                runEmulator(40 * 1000 * 1000);   // 10 sec
+                runEmulator(140 * 1000 * 1000);   // 10 sec
             });
 
         sdl->MainLoop();

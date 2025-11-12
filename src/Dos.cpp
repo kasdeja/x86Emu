@@ -392,7 +392,7 @@ void Dos::Int21h(CpuInterface* cpu)
     }
 }
 
-uint16_t Dos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
+uint16_t Dos::BuildEnv(uint16_t envSeg, std::string cmd, const std::vector<std::string> &envVars)
 {
     char*    env = reinterpret_cast<char *>(m_memory + envSeg * 16);
     uint32_t envSize = 0;
@@ -412,24 +412,25 @@ uint16_t Dos::BuildEnv(uint16_t envSeg, const std::vector<std::string> &envVars)
     *env++ = 0;
     *env++ = 1;
     *env++ = 0;
-    ::strcpy(env, "C:\\OBJ\\FPTEST.EXE");
 
-    for(int n = 0; n < 256; n++)
-    {
-        printf("%02x ", bk[n]);
-    }
-    printf("\n");
-    for(int n = 0; n < 256; n++)
-    {
-        printf("%c ", bk[n]);
-    }
-    printf("\n");
+    ::strcpy(env, cmd.c_str());
+    envSize += cmd.size() + 1;
 
+    // for(int n = 0; n < 256; n++)
+    // {
+    //     printf("%02x ", bk[n]);
+    // }
+    // printf("\n");
+    // for(int n = 0; n < 256; n++)
+    // {
+    //     printf("%c ", bk[n]);
+    // }
+    // printf("\n");
 
     return envSeg + (((envSize + 16) & (~15)) >> 4);
 }
 
-void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &cmd)
+void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &args)
 {
     PspHeader* psp = reinterpret_cast<PspHeader *>(m_memory + pspSeg * 16);
 
@@ -441,8 +442,8 @@ void Dos::BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std
     psp->nextSeg = nextSeg;
     psp->envSeg  = envSeg;
 
-    psp->cmdTailLength = 0x00; //cmd.size();
-    //::strcpy(psp->cmdTail, cmd.c_str());
+    psp->cmdTailLength = args.size();
+    ::strcpy(psp->cmdTail, args.c_str());
 }
 
 void Dos::SetPspSeg(uint16_t pspSeg)

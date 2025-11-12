@@ -271,41 +271,53 @@ inline uint16_t Cpu::Imm16(uint8_t* ip)
 
 inline uint32_t Cpu::Load32(std::size_t linearAddr)
 {
-     printf("load %08lx val 0x%08x\n",
-         linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
+//    printf("load %08lx val 0x%08x\n",
+//        linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint32_t *>(m_memory + linearAddr);
 }
 
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-//     if (linearAddr < 0x1000)
-//     {
-         printf("load %08lx val 0x%04x\n",
-             linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
-//     }
+//    printf("load %08lx val 0x%04x\n",
+//        linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint16_t *>(m_memory + linearAddr);
 }
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-//     if (linearAddr < 0x1000)
-//     {
-         printf("load %08lx val 0x%02x\n",
-             linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
-//     }
+//    printf("load %08lx val 0x%02x\n",
+//        linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
-    return *reinterpret_cast<uint8_t *>(m_memory + linearAddr);
+    if ((linearAddr & 0xfe0000) == 0xa0000)
+    {
+        std::size_t vgaAddr = linearAddr - 0xa0000;
+
+        if (m_vgaChain4)
+        {
+            return *reinterpret_cast<uint8_t *>(m_vgaMemory + vgaAddr);
+        }
+        else
+        {
+            vgaAddr <<= 2;
+
+            // FIXME: Shall use Read Map Select Register (Index 04h) to select a plane to read from.
+            uint8_t* vgaMem = m_vgaMemory + vgaAddr;
+
+            return *vgaMem;
+        }
+    }
+    else
+    {
+        return *reinterpret_cast<uint8_t *>(m_memory + linearAddr);
+    }
 }
 
 inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 {
-//     if (linearAddr >= 0x5a400 && linearAddr <= 0x5a4ff)
-//     {
-         printf("store %08lx val 0x%04x (was 0x%04x)\n",
-             linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
-//     }
+//    printf("store %08lx val 0x%04x (was 0x%04x)\n",
+//        linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -344,8 +356,8 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 
 inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 {
-    printf("store %08lx val 0x%02x (was 0x%02x)\n",
-        linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+//    printf("store %08lx val 0x%02x (was 0x%02x)\n",
+//        linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -1653,7 +1665,9 @@ void Cpu::HandleF6h(uint8_t* ip)
                 [this](uint8_t op)
                 {
                     uint8_t result = -op;
+
                     SetSubFlags8(0, op, result);
+                    SetCF(op != 0);
                     return result;
                 });
             break;
@@ -1706,8 +1720,6 @@ void Cpu::HandleF6h(uint8_t* ip)
             uint16_t val  = m_register[Register::AX];
             uint16_t result = val / src;
             uint16_t remainder = val % src;
-
-            printf("DIV val %04x result %04x remainder %04x\n", val, result, remainder);
 
             if (result > 0xff)
             {
@@ -1780,7 +1792,10 @@ void Cpu::HandleF7h(uint8_t* ip)
                 [this](uint16_t op)
                 {
                     uint16_t result = -op;
+
                     SetSubFlags16(0, op, result);
+                    SetCF(op != 0);
+
                     return result;
                 });
             break;
@@ -1835,8 +1850,6 @@ void Cpu::HandleF7h(uint8_t* ip)
                 uint32_t val  = (m_register[Register::DX] << 16) | m_register[Register::AX];
                 uint32_t result = val / src;
                 uint32_t remainder = val % src;
-
-                printf("DIV val %08x result %08x remainder %08x\n", val, result, remainder);
 
                 if (result > 0xffff)
                 {
@@ -2382,31 +2395,21 @@ void Cpu::ExecuteInstruction()
 
     m_instructionCnt++;
 
-    if (m_register[Register::CS] == 0x261f && m_register[Register::IP] == 0x0300)
-    {
-        for(int n = 11; n >= 0; n--)
-        {
-            printf("s 0x%04x v 0x%04x\n",
-                m_register[Register::SP] + n * 2,
-                Load16(m_register[Register::SS] * 16 + m_register[Register::SP] + n * 2));
-        }
-    }
-
-    printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
-        m_register[Register::AX],
-        m_register[Register::BX],
-        m_register[Register::CX],
-        m_register[Register::DX],
-        m_register[Register::SI],
-        m_register[Register::DI],
-        m_register[Register::SP],
-        m_register[Register::BP],
-        m_register[Register::CS],
-        m_register[Register::DS],
-        m_register[Register::ES],
-        m_register[Register::SS]);
-
-    printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+    // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
+    //     m_register[Register::AX],
+    //     m_register[Register::BX],
+    //     m_register[Register::CX],
+    //     m_register[Register::DX],
+    //     m_register[Register::SI],
+    //     m_register[Register::DI],
+    //     m_register[Register::SP],
+    //     m_register[Register::BP],
+    //     m_register[Register::CS],
+    //     m_register[Register::DS],
+    //     m_register[Register::ES],
+    //     m_register[Register::SS]);
+    //
+    // printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
 
     switch(opcode)
     {
@@ -3487,7 +3490,7 @@ void Cpu::ExecuteInstruction()
 
         case 0xa9: // test ax, imm16
             SetLogicFlags16(m_register[Register::AX] & Imm16(ip));
-            m_register[Register::IP] += 2;
+            m_register[Register::IP] += 3;
             break;
 
         case 0xaa: // stosb
@@ -3675,8 +3678,18 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip];
             break;
 
-//         case 0xd4: // aam
-//             break;
+        case 0xd4: // aam
+            {
+                uint8_t op1 = m_register[Register::AX] & 0xff;
+                uint8_t op2 = *ip;
+
+                m_register[Register::AX] = ((op1 / op2) << 8) | (op1 % op2);
+                m_result = m_register[Register::AX] & 0xff;
+                m_auxbits = 0;
+
+                m_register[Register::IP] += 2;
+                break;
+            }
 
 //         case 0xd5: // aad
 //             break;
@@ -3806,8 +3819,10 @@ void Cpu::ExecuteInstruction()
 //         case 0xf4: // halt
 //             break;
 
-//         case 0xf5: // cmc
-//             break;
+        case 0xf5: // cmc
+            SetCF(!GetCF());
+            m_register[Register::IP] += 1;
+            break;
 
         case 0xf6:
             HandleF6h(ip);

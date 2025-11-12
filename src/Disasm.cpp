@@ -1312,6 +1312,11 @@ std::string Disasm::Process()
             length = 2;
             break;
 
+        case 0xf5:
+            instr = "cmc";
+            length = 1;
+            break;
+
         case 0xf6:
             instr = HandleF6h(ip, length);
             break;

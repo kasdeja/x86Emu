@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <thread>
 #include <atomic>
+#include <unistd.h>
 #include "Memory.h"
 #include "MemoryView.h"
 #include "Vga.h"
@@ -12,6 +13,7 @@
 #include "Cpu.h"
 #include "Pic.h"
 #include "Pit.h"
+#include "Keyboard.h"
 #include "SDLInterface.h"
 
 int main(int argc, char **argv)
@@ -27,6 +29,7 @@ int main(int argc, char **argv)
     CpuInterface* cpu        = new Cpu(*memory);
     Pic*          pic        = new Pic(*cpu);
     Pit*          pit        = new Pit(*pic);
+    Keyboard*     keyboard   = new Keyboard;
     SDLInterface* sdl        = new SDLInterface(vga, memoryView);
 
     uint16_t envSeg   = 0x0ff0;
@@ -58,6 +61,10 @@ int main(int argc, char **argv)
             {
                 // Do nothing
             }
+            else if (irq == 0x33) // Mouse
+            {
+                // Do nothing
+            }
             else if (irq == 0x10)
             {
                 bios->Int10h(cpu);
@@ -77,7 +84,7 @@ int main(int argc, char **argv)
         };
 
     cpu->onPortRead =
-        [vga, pic, pit](CpuInterface *cpu, uint16_t port, int size) -> uint32_t
+        [vga, pic, pit, keyboard](CpuInterface *cpu, uint16_t port, int size) -> uint32_t
         {
             switch(port)
             {
@@ -88,12 +95,18 @@ int main(int argc, char **argv)
                 case 0x42: case 0x43:
                     return pit->PortRead(port);
 
+                case 0x60:
+                    return keyboard->GetKey();
+
                 case 0x3c5:
                 case 0x3c9:
                 case 0x3cf:
                 case 0x3d5:
                 case 0x3da:
                     return vga->PortRead(port);
+
+                case 0x201: // Joystick, ignore
+                    return 0;
 
                 default:
                     printf("Unhandled read port = 0x%04x, size = %d\n", port, size);
@@ -156,23 +169,32 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::AX, 0); // was 2, why?
 
     auto runEmulator =
-        [cpu, pic, pit](int64_t usec)
+        [cpu, pic, pit, keyboard](int64_t usec, int64_t instructionsPerSecond) -> bool
         {
-            int64_t nps = 1000000000;               // nanoseconds per second
-            int64_t ips = 200000;                   // instructions per second
-            int     ite = (ips * usec) / 1000000;   // instructions to execute
+            constexpr int64_t batchSize = 5000;
+            int64_t instructionsToExecute = (instructionsPerSecond * usec) / 1000000;
 
-            for(int n = 0; n < ite; n += 5000)
+            while(instructionsToExecute > 0)
             {
-                int itr = ite - n;
+                int64_t itr = std::min(batchSize, instructionsToExecute);
 
-                if (itr > 5000)
-                    itr = 5000;
+                if (keyboard->HasKey())
+                {
+                    pic->Interrupt(1);
+                }
 
-                cpu->Run(itr);
-                pit->Process((nps * itr) / ips);
+                if (!cpu->Run(itr))
+                {
+                    return false;
+                }
+
+                pit->Process((1000000000 * itr) / instructionsPerSecond);
                 pic->HandleInterrupts();
+
+                instructionsToExecute -= itr;
             }
+
+            return true;
         };
 
     // Start main loop
@@ -181,13 +203,24 @@ int main(int argc, char **argv)
 
     if (sdl->Initialize())
     {
+        sdl->onKeyEvent = [keyboard](uint8_t scancode) { keyboard->AddKey(scancode); };
+
         running = true;
 
         thread = std::thread(
             [&running, cpu, runEmulator]
             {
                 printf("Running...\n");
-                runEmulator(140 * 1000 * 1000);   // 10 sec
+                while(running)
+                {
+                    if (!runEmulator(5000, 4000000))
+                    {
+                        running = false;
+                        return;
+                    }
+
+                    ::usleep(5000);
+                }
             });
 
         sdl->MainLoop();

@@ -77,6 +77,45 @@ void SDLInterface::MainLoop()
         {
             switch(event.type)
             {
+                case SDL_KEYDOWN:
+                case SDL_KEYUP:
+                    {
+                        uint8_t keycode = 0;
+                        bool    extended = false;
+
+                        switch(event.key.keysym.scancode)
+                        {
+                            case SDL_SCANCODE_SPACE:  keycode = 0x39;                  break;
+                            case SDL_SCANCODE_ESCAPE: keycode = 0x01;                  break;
+                            case SDL_SCANCODE_RIGHT:  keycode = 0x4d; extended = true; break;
+                            case SDL_SCANCODE_LEFT:   keycode = 0x4b; extended = true; break;
+                            case SDL_SCANCODE_DOWN:   keycode = 0x50; extended = true; break;
+                            case SDL_SCANCODE_UP:     keycode = 0x48; extended = true; break;
+                            default:                  keycode = 0;                     break;
+                        }
+
+                        if (event.key.state == SDL_PRESSED)
+                        {
+                            printf("Key press detected, keysym %d\n", event.key.keysym.scancode);
+                        }
+                        else
+                        {
+                            printf("Key release detected, keysym %d\n", event.key.keysym.scancode);
+                            keycode |= 0x080;
+                        }
+
+                        if (onKeyEvent && keycode != 0)
+                        {
+                            if (extended)
+                            {
+                                onKeyEvent(0xe0);
+                            }
+
+                            onKeyEvent(keycode);
+                        }
+                    }
+                    break;
+
                 case SDL_WINDOWEVENT:
                     if (event.window.event == SDL_WINDOWEVENT_RESIZED)
                     {

@@ -176,7 +176,7 @@ Memory& Cpu::GetMem()
     return m_rMemory;
 }
 
-void Cpu::Run(int nCycles)
+bool Cpu::Run(int nCycles)
 {
     m_state            = 0;
     m_segmentBase      = m_register[Register::DS] * 16;
@@ -187,8 +187,10 @@ void Cpu::Run(int nCycles)
         ExecuteInstruction();
 
         if (m_state & State::InvalidOp)
-            break;
+            return false;
     }
+
+    return true;
 }
 
 void Cpu::Interrupt(int num)
@@ -2410,6 +2412,12 @@ void Cpu::ExecuteInstruction()
     //     m_register[Register::SS]);
     //
     // printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+
+    // if (m_register[Register::CS] == 0)
+    // {
+    //     m_state |= State::InvalidOp;
+    //     return;
+    // }
 
     switch(opcode)
     {

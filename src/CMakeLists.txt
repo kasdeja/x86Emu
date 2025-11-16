@@ -3,6 +3,7 @@ add_executable(x86Emu
     Cpu.cpp
     Disasm.cpp
     Dos.cpp
+    Keyboard.cpp
     Memory.cpp
     MemoryView.cpp
     Pic.cpp

@@ -27,7 +27,7 @@ public:
 
     Memory& GetMem() override;
 
-    void Run(int nCycles) override;
+    bool Run(int nCycles) override;
     void Interrupt(int num) override;
     bool HardwareInterrupt(int num) override;
     void VgaPlaneMode(bool chain4, uint8_t planeMask) override;

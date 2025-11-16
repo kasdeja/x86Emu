@@ -161,7 +161,7 @@ uint8_t Vga::PortRead(uint16_t port)
     if (port == 0x3c9)
     {
         uint8_t value = m_vgaColorMap[m_colorMapReadIdx / 3][m_colorMapReadIdx % 3];
-        printf("VGA colormap idx read %d = %d\n", m_colorMapReadIdx, value);
+        //printf("VGA colormap idx read %d = %d\n", m_colorMapReadIdx, value);
         m_colorMapReadIdx = (m_colorMapReadIdx + 1) % 768;
 
         return value;
@@ -279,19 +279,19 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
     if (port == 0x3c7)
     {
         m_colorMapReadIdx = value * 3;
-        printf("VGA colormap read idx %d / %d \n", m_colorMapReadIdx, value);
+        //printf("VGA colormap read idx %d / %d \n", m_colorMapReadIdx, value);
     }
     else if (port == 0x3c8)
     {
         m_colorMapWriteIdx = value * 3;
-        printf("VGA colormap write idx %d / %d \n", m_colorMapWriteIdx, value);
+        //printf("VGA colormap write idx %d / %d \n", m_colorMapWriteIdx, value);
     }
     else if (port == 0x3c9)
     {
         int idx = m_colorMapWriteIdx / 3;
 
         m_vgaColorMap[idx][m_colorMapWriteIdx % 3] = value;
-        printf("VGA colormap idx %d write = %d\n", m_colorMapWriteIdx, value);
+        //printf("VGA colormap idx %d write = %d\n", m_colorMapWriteIdx, value);
         m_colorMapWriteIdx = (m_colorMapWriteIdx + 1) % 768;
 
         m_colorMap[idx] =

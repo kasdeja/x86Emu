@@ -1204,6 +1204,24 @@ std::string Disasm::Process()
             length = s_modRmInstLen[*ip];
             break;
 
+        case 0xd4: // aam
+            instr = "aam";
+            length = 2;
+            break;
+
+        // case 0xd5: // aad
+        //     break;
+        //
+        // case 0xd6: // salc
+        //     break;
+        //
+        // case 0xd7: // xlatb
+        //     break;
+        //
+        // case 0xd8: case 0xd9: case 0xda: case 0xdb:
+        // case 0xdc: case 0xdd: case 0xde: case 0xdf: // fpu
+        //     break;
+
         case 0xe0: // loopnz rel8
             instr = "loopnz " + Rel8(ip, offset + 2);
             length = 2;

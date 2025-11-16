@@ -1,6 +1,9 @@
 #ifndef X86EMU_SDL_INTERFACE
 #define X86EMU_SDL_INTERFACE
 
+#include <inttypes.h>
+#include <functional>
+
 class Vga;
 class MemoryView;
 
@@ -14,6 +17,8 @@ public:
     // public methods
     bool Initialize();
     void MainLoop();
+
+    std::function<void (uint8_t scancode)>  onKeyEvent;
 
 private:
     Vga *m_vga;

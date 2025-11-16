@@ -36,7 +36,7 @@ public:
 
     virtual Memory& GetMem() = 0;
 
-    virtual void Run(int nCycles) = 0;
+    virtual bool Run(int nCycles) = 0;
     virtual void Interrupt(int num) = 0;
     virtual bool HardwareInterrupt(int num) = 0;
     virtual void VgaPlaneMode(bool chain4, uint8_t planeMask) = 0;

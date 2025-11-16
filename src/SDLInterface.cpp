@@ -86,6 +86,10 @@ void SDLInterface::MainLoop()
 
                         switch(event.key.keysym.scancode)
                         {
+                            case SDL_SCANCODE_Y:      keycode = 0x15;                  break;
+                            case SDL_SCANCODE_LCTRL:  keycode = 0x1d;                  break;
+                            case SDL_SCANCODE_RCTRL:  keycode = 0x1d; extended = true; break;
+                            case SDL_SCANCODE_RETURN: keycode = 0x1c;                  break;
                             case SDL_SCANCODE_SPACE:  keycode = 0x39;                  break;
                             case SDL_SCANCODE_ESCAPE: keycode = 0x01;                  break;
                             case SDL_SCANCODE_RIGHT:  keycode = 0x4d; extended = true; break;

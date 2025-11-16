@@ -75,11 +75,17 @@ Vga::Vga(Memory& memory)
 
     m_verticalRetraceCnt = 0;
 
+    m_chain4            = true;
+    m_readPlaneIdx      = 0;
+    m_writePlaneMask    = 0xffffffff;
+    m_writePlaneMaskInv = 0;
+    m_writeMode         = 0;
+    m_startAddress      = 0;
+
     // Alloc memory
     m_linear       = reinterpret_cast<uint8_t *>(aligned_alloc(32,  64 * 1024));
     m_videoMem     = memory.GetVgaMem();
-    m_videoMemText = memory.GetMem() + 0xb8000;
-
+    m_videoMemText = m_videoMem + 0x18000; //memory.GetMem() + 0xb8000;
     m_linebuffer   = reinterpret_cast<__m128i *>(aligned_alloc(32, 2048 * 8 * 3 * sizeof(short)));
     m_pixelbuffer  = nullptr;
 
@@ -301,7 +307,10 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
     }
     else if (port == 0x3c4) // Sequencer register index
     {
-        printf("VGA Sequencer register index = %d\n", value);
+        if (value != 2)
+        {
+            printf("VGA Sequencer register index = %d\n", value);
+        }
         m_sequencerIdx = value;
     }
     else if (port == 0x3ce) // Graphics Controller register index
@@ -316,18 +325,21 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
     }
     else if (port == 0x3c5 && m_sequencerIdx < 5) // Sequencer register write
     {
-        printf("VGA ");
-
-        switch(m_sequencerIdx)
+        if (m_sequencerIdx != 2)
         {
-            case 0: printf("Reset");                break;
-            case 1: printf("Clocking Mode");        break;
-            case 2: printf("Plane Mask");           break;
-            case 3: printf("Character Map Select"); break;
-            case 4: printf("Memory Mode");          break;
-        }
+            printf("VGA ");
 
-        printf(" register write = 0x%02x (was 0x%02x)\n", value, m_sequencerReg[m_sequencerIdx]);
+            switch(m_sequencerIdx)
+            {
+                case 0: printf("Reset");                break;
+                case 1: printf("Clocking Mode");        break;
+                case 2: printf("Plane Mask");           break;
+                case 3: printf("Character Map Select"); break;
+                case 4: printf("Memory Mode");          break;
+            }
+
+            printf(" register write = 0x%02x (was 0x%02x)\n", value, m_sequencerReg[m_sequencerIdx]);
+        }
 
         m_sequencerReg[m_sequencerIdx] = value;
 
@@ -348,8 +360,16 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
 
         if (m_sequencerIdx == 2 || m_sequencerIdx == 4)
         {
-            if (onPlaneModeChange)
-                onPlaneModeChange((m_sequencerReg[4] & 8) != 0, m_sequencerReg[2]);
+            uint8_t planeMask = m_sequencerReg[2];
+
+            m_chain4 = (m_sequencerReg[4] & 8) != 0;
+
+            m_writePlaneMask  =  (planeMask & 1) ? 0xff : 0x00;
+            m_writePlaneMask |= ((planeMask & 2) ? 0xff : 0x00) << 8;
+            m_writePlaneMask |= ((planeMask & 4) ? 0xff : 0x00) << 16;
+            m_writePlaneMask |= ((planeMask & 8) ? 0xff : 0x00) << 24;
+
+            m_writePlaneMaskInv = ~m_writePlaneMask;
         }
     }
     else if (port == 0x3cf && m_graphicsCtrlIdx < 9) // Graphics Controller register write
@@ -372,6 +392,16 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
         printf(" register write = 0x%02x (was 0x%02x)\n", value, m_graphicsCtrlReg[m_graphicsCtrlIdx]);
 
         m_graphicsCtrlReg[m_graphicsCtrlIdx] = value;
+
+        if (m_graphicsCtrlIdx == 4)
+        {
+            m_readPlaneIdx = m_graphicsCtrlReg[4] & 3;
+        }
+        else if (m_graphicsCtrlIdx == 5)
+        {
+            m_writeMode = m_graphicsCtrlReg[5] & 3;
+        }
+
     }
     else if (port == 0x3d5 && m_crtCtrlIdx < 35) // CRT Controller register write
     {
@@ -416,9 +446,9 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
 
         if (m_crtCtrlIdx == 20 || m_crtCtrlIdx == 23)
         {
-            int addresingMode = ((m_crtCtrlReg[20] >> 6) & 1) * 2 + ((m_crtCtrlReg[23] >> 6) & 1);
+            int addressingMode = ((m_crtCtrlReg[20] >> 6) & 1) * 2 + ((m_crtCtrlReg[23] >> 6) & 1);
 
-            switch(addresingMode)
+            switch(addressingMode)
             {
                 case 0: printf("VGA Addressing Mode = word\n"); break;
                 case 1: printf("VGA Addressing Mode = byte\n"); break;
@@ -429,12 +459,52 @@ void Vga::PortWrite(uint16_t port, uint8_t value)
                     break;
             }
         }
+        else if (m_crtCtrlIdx == 12 || m_crtCtrlIdx == 13)
+        {
+            m_startAddress = (m_crtCtrlReg[12] << 10) | (m_crtCtrlReg[13] << 2);
+        }
     }
     else
     {
         printf("Unhandled VGA write port = 0x%04x, value = 0x%02x\n", port, value);
     }
 }
+
+uint8_t Vga::MemRead(uint32_t addr)
+{
+    if (m_chain4)
+    {
+        return m_videoMem[addr];
+    }
+    else
+    {
+        m_latch = (reinterpret_cast<uint32_t*>(m_videoMem))[addr];
+        return (reinterpret_cast<uint8_t*>(&m_latch))[m_readPlaneIdx];
+    }
+}
+
+void Vga::MemWrite(uint32_t addr, uint8_t value)
+{
+    if (m_chain4)
+    {
+        m_videoMem[addr] = value;
+    }
+    else
+    {
+        if (m_writeMode == 0)
+        {
+            uint32_t *pixels = reinterpret_cast<uint32_t*>(m_videoMem) + addr;
+            uint32_t values  = value | (value << 8) | (value << 16) | (value << 24);
+
+            *pixels = (*pixels & m_writePlaneMaskInv) | (values & m_writePlaneMask);
+        }
+        else
+        {
+            (reinterpret_cast<uint32_t*>(m_videoMem))[addr] = m_latch;
+        }
+    }
+}
+
 
 uint8_t* Vga::GetColorMap()
 {
@@ -584,7 +654,7 @@ void Vga::DrawMode13hLine8(short *pixel, int y)
     for(int n = 0; n < 96; n++)
         *pixel++ = 0;
 
-    uint8_t* line = m_videoMem + y * 320;
+    uint8_t* line = m_videoMem + ((m_startAddress + y * 320) & 0x3ffff);
 
     for(int n = 0; n < 320; n++)
     {

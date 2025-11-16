@@ -31,7 +31,6 @@ uint16_t Cpu::s_modRmInstLen[256] =
 // constructor & destructor
 Cpu::Cpu(Memory& memory)
     : m_memory   (memory.GetMem())
-    , m_vgaMemory(memory.GetVgaMem())
     , m_rMemory  (memory)
 {
     //std::fill(m_register, m_register + 16, 0);
@@ -44,13 +43,6 @@ Cpu::Cpu(Memory& memory)
 
     m_result  = 0;
     m_auxbits = 0;
-
-    m_vgaChain4 = true;
-    m_vgaPlaneMask[0] = 0xff;
-    m_vgaPlaneMask[1] = 0xff;
-    m_vgaPlaneMask[2] = 0xff;
-    m_vgaPlaneMask[3] = 0xff;
-
     m_instructionCnt = 0;
 }
 
@@ -220,25 +212,15 @@ bool Cpu::HardwareInterrupt(int num)
     return true;
 }
 
-void Cpu::VgaPlaneMode(bool chain4, uint8_t planeMask)
-{
-    m_vgaChain4 = chain4;
-
-    m_vgaPlaneMask[0] = (planeMask & 1) ? 0xff : 0x00;
-    m_vgaPlaneMask[1] = (planeMask & 2) ? 0xff : 0x00;
-    m_vgaPlaneMask[2] = (planeMask & 4) ? 0xff : 0x00;
-    m_vgaPlaneMask[3] = (planeMask & 8) ? 0xff : 0x00;
-}
-
 // private methods
 uint32_t Cpu::PortRead(uint16_t port, int size)
 {
-    return onPortRead(this, port, size);
+    return onPortRead(port, size);
 }
 
 void Cpu::PortWrite(uint16_t port, int size, uint32_t value)
 {
-    onPortWrite(this, port, size, value);
+    onPortWrite(port, size, value);
 }
 
 inline uint16_t* Cpu::Reg16(uint8_t modrm)
@@ -294,21 +276,7 @@ inline uint8_t Cpu::Load8(std::size_t linearAddr)
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
-        std::size_t vgaAddr = linearAddr - 0xa0000;
-
-        if (m_vgaChain4)
-        {
-            return *reinterpret_cast<uint8_t *>(m_vgaMemory + vgaAddr);
-        }
-        else
-        {
-            vgaAddr <<= 2;
-
-            // FIXME: Shall use Read Map Select Register (Index 04h) to select a plane to read from.
-            uint8_t* vgaMem = m_vgaMemory + vgaAddr;
-
-            return *vgaMem;
-        }
+        return onVgaMemRead(linearAddr - 0xa0000);
     }
     else
     {
@@ -323,32 +291,10 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
-        std::size_t vgaAddr = linearAddr - 0xa0000;
+        uint32_t addr = linearAddr - 0xa0000;
 
-        if (m_vgaChain4)
-        {
-            *reinterpret_cast<uint16_t *>(m_vgaMemory + vgaAddr) = value;
-        }
-        else
-        {
-            vgaAddr <<= 2;
-
-            uint8_t* vgaMem = m_vgaMemory + vgaAddr;
-            uint8_t  color  = value & 0xff;
-
-            vgaMem[0] = (vgaMem[0] & ~m_vgaPlaneMask[0]) | (color & m_vgaPlaneMask[0]);
-            vgaMem[1] = (vgaMem[1] & ~m_vgaPlaneMask[1]) | (color & m_vgaPlaneMask[1]);
-            vgaMem[2] = (vgaMem[2] & ~m_vgaPlaneMask[2]) | (color & m_vgaPlaneMask[2]);
-            vgaMem[3] = (vgaMem[3] & ~m_vgaPlaneMask[3]) | (color & m_vgaPlaneMask[3]);
-
-            color = value >> 8;
-            vgaMem += 4;
-
-            vgaMem[0] = (vgaMem[0] & ~m_vgaPlaneMask[0]) | (color & m_vgaPlaneMask[0]);
-            vgaMem[1] = (vgaMem[1] & ~m_vgaPlaneMask[1]) | (color & m_vgaPlaneMask[1]);
-            vgaMem[2] = (vgaMem[2] & ~m_vgaPlaneMask[2]) | (color & m_vgaPlaneMask[2]);
-            vgaMem[3] = (vgaMem[3] & ~m_vgaPlaneMask[3]) | (color & m_vgaPlaneMask[3]);
-        }
+        onVgaMemWrite(addr, value & 0xff);
+        onVgaMemWrite(addr + 1, value >> 8);
     }
     else
     {
@@ -363,23 +309,7 @@ inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
-        std::size_t vgaAddr = linearAddr - 0xa0000;
-
-        if (m_vgaChain4)
-        {
-            *reinterpret_cast<uint8_t *>(m_vgaMemory + vgaAddr) = value;
-        }
-        else
-        {
-            vgaAddr <<= 2;
-
-            uint8_t* vgaMem = m_vgaMemory + vgaAddr;
-
-            vgaMem[0] = (vgaMem[0] & ~m_vgaPlaneMask[0]) | (value & m_vgaPlaneMask[0]);
-            vgaMem[1] = (vgaMem[1] & ~m_vgaPlaneMask[1]) | (value & m_vgaPlaneMask[1]);
-            vgaMem[2] = (vgaMem[2] & ~m_vgaPlaneMask[2]) | (value & m_vgaPlaneMask[2]);
-            vgaMem[3] = (vgaMem[3] & ~m_vgaPlaneMask[3]) | (value & m_vgaPlaneMask[3]);
-        }
+        onVgaMemWrite(linearAddr - 0xa0000, value);
     }
     else
     {
@@ -2413,12 +2343,6 @@ void Cpu::ExecuteInstruction()
     //
     // printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
 
-    // if (m_register[Register::CS] == 0)
-    // {
-    //     m_state |= State::InvalidOp;
-    //     return;
-    // }
-
     switch(opcode)
     {
         case 0x00: // add r/m8, r8
@@ -3653,7 +3577,7 @@ void Cpu::ExecuteInstruction()
 
         case 0xcd: // int imm8
             m_register[Register::IP] += 2;
-            onSoftIrq(this, *ip);
+            onInterrupt(*ip);
             break;
 
 //         case 0xce: // into

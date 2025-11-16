@@ -29,7 +29,7 @@ void Pit::PortWrite(uint16_t port, uint8_t value)
 
     PitChannel& channel = m_channel[port - 0x40];
 
-    uint8_t accessMode = (m_cmd >> 5) & 3;
+    uint8_t accessMode = (m_cmd >> 4) & 3;
 
     if (accessMode == 3)
     {

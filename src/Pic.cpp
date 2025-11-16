@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "Pic.h"
 #include "CpuInterface.h"
 
@@ -34,7 +35,9 @@ void Pic::Interrupt(int num)
 void Pic::HandleInterrupts()
 {
     if (m_interruptInService != -1)
+    {
         return;
+    }
 
     HandleInterrupt(0);  // timer interrupt
     HandleInterrupt(1);  // keyboard interrupt
@@ -54,4 +57,3 @@ void Pic::HandleInterrupt(int num)
         interrupt.raised = false;
     }
 }
-

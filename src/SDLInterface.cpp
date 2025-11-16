@@ -68,9 +68,10 @@ void SDLInterface::MainLoop()
 
     // Main loop
     SDL_Event event;
-    bool      running = true;
 
-    while(running)
+    m_running = true;
+
+    while(m_running)
     {
         // Process events
         while(SDL_PollEvent(&event) != 0)
@@ -127,7 +128,7 @@ void SDLInterface::MainLoop()
 
                 case SDL_QUIT:
                     printf("quit\n");
-                    running = false;
+                    m_running = false;
                     break;
             }
         }
@@ -149,4 +150,9 @@ void SDLInterface::MainLoop()
 
     if (mvWindow)
         SDL_DestroyWindow(mvWindow);
+}
+
+void SDLInterface::StopMainLoop()
+{
+    m_running = false;
 }

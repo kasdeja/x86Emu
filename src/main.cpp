@@ -35,11 +35,11 @@ int main(int argc, char **argv)
     uint16_t envSeg   = 0x0ff0;
     uint16_t pspSeg   = 0x1000;
     uint16_t imageSeg = 0x1010;
+    uint16_t nextSeg  = 0x9fff;
+
     //uint16_t envSeg   = 0x07ca;
     //uint16_t pspSeg   = 0x0813;
     //uint16_t imageSeg = 0x0823;
-    uint16_t nextSeg  = 0x9fff;
-
     //dos->BuildEnv(envSeg, { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
     //auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
 
@@ -50,41 +50,41 @@ int main(int argc, char **argv)
     dos->SetPspSeg(pspSeg);
     dos->SetCwd("./wolf");
 
-    cpu->onSoftIrq =
-        [dos, bios](CpuInterface *cpu, int irq)
+    cpu->onInterrupt =
+        [cpu, dos, bios](int intNo)
         {
-            if (irq == 0x21)
+            if (intNo == 0x21)
             {
                 dos->Int21h(cpu);
             }
-            else if (irq == 0x2f) // XMS interrupt
+            else if (intNo == 0x2f) // XMS interrupt
             {
                 // Do nothing
             }
-            else if (irq == 0x33) // Mouse
+            else if (intNo == 0x33) // Mouse
             {
                 // Do nothing
             }
-            else if (irq == 0x10)
+            else if (intNo == 0x10)
             {
                 bios->Int10h(cpu);
             }
-            else if (irq == 0x11)
+            else if (intNo == 0x11)
             {
                 bios->Int11h(cpu);
             }
-            else if (irq == 0x1a)
+            else if (intNo == 0x1a)
             {
                 bios->Int1Ah(cpu);
             }
             else
             {
-                cpu->Interrupt(irq);
+                cpu->Interrupt(intNo);
             }
         };
 
     cpu->onPortRead =
-        [vga, pic, pit, keyboard](CpuInterface *cpu, uint16_t port, int size) -> uint32_t
+        [vga, pic, pit, keyboard](uint16_t port, int size) -> uint32_t
         {
             switch(port)
             {
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
         };
 
     cpu->onPortWrite =
-        [vga, pic, pit](CpuInterface *cpu, uint16_t port, int size, uint32_t value)
+        [vga, pic, pit](uint16_t port, int size, uint32_t value)
         {
             switch(port)
             {
@@ -154,11 +154,8 @@ int main(int argc, char **argv)
             }
         };
 
-    vga->onPlaneModeChange =
-        [cpu](bool chain4, uint8_t planeMask)
-        {
-            cpu->VgaPlaneMode(chain4, planeMask);
-        };
+    cpu->onVgaMemRead  = [vga](uint32_t addr) { return vga->MemRead(addr); };
+    cpu->onVgaMemWrite = [vga](uint32_t addr, uint8_t value) { vga->MemWrite(addr, value); };
 
     cpu->SetReg16(CpuInterface::CS, imageInfo.initCS);
     cpu->SetReg16(CpuInterface::IP, imageInfo.initIP);
@@ -204,19 +201,18 @@ int main(int argc, char **argv)
     if (sdl->Initialize())
     {
         sdl->onKeyEvent = [keyboard](uint8_t scancode) { keyboard->AddKey(scancode); };
-
         running = true;
 
         thread = std::thread(
-            [&running, cpu, runEmulator]
+            [&running, cpu, runEmulator, sdl]
             {
                 printf("Running...\n");
                 while(running)
                 {
                     if (!runEmulator(5000, 4000000))
                     {
-                        running = false;
-                        return;
+                        sdl->StopMainLoop();
+                        break;
                     }
 
                     ::usleep(5000);
@@ -224,6 +220,7 @@ int main(int argc, char **argv)
             });
 
         sdl->MainLoop();
+        running = false;
 
         if (thread.joinable())
             thread.join();

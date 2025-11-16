@@ -39,11 +39,12 @@ public:
     virtual bool Run(int nCycles) = 0;
     virtual void Interrupt(int num) = 0;
     virtual bool HardwareInterrupt(int num) = 0;
-    virtual void VgaPlaneMode(bool chain4, uint8_t planeMask) = 0;
 
-    std::function<void     (CpuInterface *cpu, int irq)>                                 onSoftIrq;
-    std::function<uint32_t (CpuInterface *cpu, uint16_t port, int size)>                 onPortRead;
-    std::function<void     (CpuInterface *cpu, uint16_t port, int size, uint32_t value)> onPortWrite;
+    std::function<void     (int intNo)>                               onInterrupt;
+    std::function<uint32_t (uint16_t port, int size)>                 onPortRead;
+    std::function<void     (uint16_t port, int size, uint32_t value)> onPortWrite;
+    std::function<uint8_t  (uint32_t addr)>                           onVgaMemRead;
+    std::function<void     (uint32_t addr, uint8_t value)>            onVgaMemWrite;
 };
 
 #endif /* X86EMU_CPU_INTERFACE */

@@ -25,13 +25,13 @@ public:
     // public methods
     uint8_t PortRead(uint16_t port);
     void    PortWrite(uint16_t port, uint8_t value);
+    uint8_t MemRead(uint32_t addr);
+    void    MemWrite(uint32_t addr, uint8_t value);
 
     uint8_t* GetColorMap();
 
     void SetMode(Mode mode);
     void DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride);
-
-    std::function<void (bool chain4, uint8_t planeMask)> onPlaneModeChange;
 
 private:
     struct FilterBank
@@ -57,6 +57,14 @@ private:
     uint8_t     m_graphicsCtrlReg[9];
     uint8_t     m_crtCtrlReg[35];
     int         m_verticalRetraceCnt;
+
+    bool        m_chain4;
+    uint32_t    m_readPlaneIdx;
+    uint32_t    m_writePlaneMask;
+    uint32_t    m_writePlaneMaskInv;
+    uint32_t    m_writeMode;
+    uint32_t    m_latch;
+    uint32_t    m_startAddress;
 
     uint16_t    m_colorMapReadIdx;
     uint16_t    m_colorMapWriteIdx;

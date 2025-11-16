@@ -30,7 +30,8 @@ public:
     bool Run(int nCycles) override;
     void Interrupt(int num) override;
     bool HardwareInterrupt(int num) override;
-    void VgaPlaneMode(bool chain4, uint8_t planeMask) override;
+
+    //void VgaPlaneMode(bool chain4, uint8_t planeMask) override;
 
 private:
     enum State
@@ -125,9 +126,9 @@ private:
     int         m_result;
     int         m_auxbits;
 
-    uint8_t*    m_vgaMemory;
-    bool        m_vgaChain4;
-    uint8_t     m_vgaPlaneMask[4];
+    // uint8_t*    m_vgaMemory;
+    // bool        m_vgaChain4;
+    // uint8_t     m_vgaPlaneMask[4];
 
     std::size_t m_instructionCnt;
 

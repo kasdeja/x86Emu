@@ -23,7 +23,7 @@ int main(int argc, char **argv)
     // Initialize emulator
     Memory*       memory     = new Memory(4096);
     Vga*          vga        = new Vga(*memory);
-    MemoryView*   memoryView = new MemoryView(memory, vga);
+    MemoryView*   memoryView = nullptr; // new MemoryView(memory, vga);
     Bios*         bios       = new Bios(*memory, *vga);
     Dos*          dos        = new Dos(*memory);
     CpuInterface* cpu        = new Cpu(*memory);
@@ -37,11 +37,13 @@ int main(int argc, char **argv)
     uint16_t imageSeg = 0x1010;
     uint16_t nextSeg  = 0x9fff;
 
-    //uint16_t envSeg   = 0x07ca;
-    //uint16_t pspSeg   = 0x0813;
-    //uint16_t imageSeg = 0x0823;
-    //dos->BuildEnv(envSeg, { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
-    //auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
+    // uint16_t envSeg   = 0x07ca;
+    // uint16_t pspSeg   = 0x0813;
+    // uint16_t imageSeg = 0x0823;
+
+    // dos->BuildEnv(envSeg, "C:\\WOLF\\TBLTEST2.EXE", { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
+    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
+    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/TBLTEST2.EXE");
 
     dos->BuildEnv(envSeg, "C:\\WOLF\\WOLF3D.EXE", { "PATH=C:\\" });
     auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/WOLF3D.EXE");

@@ -255,24 +255,24 @@ inline uint16_t Cpu::Imm16(uint8_t* ip)
 
 inline uint32_t Cpu::Load32(std::size_t linearAddr)
 {
-//    printf("load %08lx val 0x%08x\n",
-//        linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
+    // printf("load %08lx val 0x%08x\n",
+    //     linearAddr, *reinterpret_cast<uint32_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint32_t *>(m_memory + linearAddr);
 }
 
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-//    printf("load %08lx val 0x%04x\n",
-//        linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+    // printf("load %08lx val 0x%04x\n",
+    //     linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     return *reinterpret_cast<uint16_t *>(m_memory + linearAddr);
 }
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-//    printf("load %08lx val 0x%02x\n",
-//        linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    // printf("load %08lx val 0x%02x\n",
+    //     linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -286,8 +286,8 @@ inline uint8_t Cpu::Load8(std::size_t linearAddr)
 
 inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 {
-//    printf("store %08lx val 0x%04x (was 0x%04x)\n",
-//        linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
+    // printf("store %08lx val 0x%04x (was 0x%04x)\n",
+    //     linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -304,8 +304,8 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
 
 inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 {
-//    printf("store %08lx val 0x%02x (was 0x%02x)\n",
-//        linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+    // printf("store %08lx val 0x%02x (was 0x%02x)\n",
+    //     linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -342,7 +342,7 @@ inline bool Cpu::GetPF()
 
     tmp = m_result & 0xff;
     tmp ^= (m_auxbits >> Aux::PDB_bit) & 0xff;
-    tmp = (tmp & (tmp >> 4)) & 0x0f;
+    tmp = (tmp ^ (tmp >> 4)) & 0x0f;
 
     return (0x9669 >> tmp) & 1;
 }
@@ -2327,21 +2327,31 @@ void Cpu::ExecuteInstruction()
 
     m_instructionCnt++;
 
-    // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
-    //     m_register[Register::AX],
-    //     m_register[Register::BX],
-    //     m_register[Register::CX],
-    //     m_register[Register::DX],
-    //     m_register[Register::SI],
-    //     m_register[Register::DI],
-    //     m_register[Register::SP],
-    //     m_register[Register::BP],
-    //     m_register[Register::CS],
-    //     m_register[Register::DS],
-    //     m_register[Register::ES],
-    //     m_register[Register::SS]);
+    // static bool disasm = false;
     //
-    // printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+    // if (m_register[Register::CS] == 0x0cb3 && m_register[Register::IP] == 0x0bfa)
+    // {
+    //     disasm = true;
+    // }
+    //
+    // if (disasm)
+    // {
+    //     printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
+    //         m_register[Register::AX],
+    //         m_register[Register::BX],
+    //         m_register[Register::CX],
+    //         m_register[Register::DX],
+    //         m_register[Register::SI],
+    //         m_register[Register::DI],
+    //         m_register[Register::SP],
+    //         m_register[Register::BP],
+    //         m_register[Register::CS],
+    //         m_register[Register::DS],
+    //         m_register[Register::ES],
+    //         m_register[Register::SS]);
+    //
+    //     printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+    // }
 
     switch(opcode)
     {

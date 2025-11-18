@@ -817,6 +817,16 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0x60: // pusha
+            instr  = "pusha";
+            length = 1;
+            break;
+
+        case 0x61: // popa
+            instr  = "popa";
+            length = 1;
+            break;
+
         case 0x68: // push imm16
             instr = "push " + Imm16(ip);
             length = 3;

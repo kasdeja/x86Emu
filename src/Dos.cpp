@@ -108,6 +108,10 @@ void Dos::Int21h(CpuInterface* cpu)
 
     switch(func)
     {
+        case 0x19: // Get current default drive
+            cpu->SetReg8(CpuInterface::AL, 3);
+            break;
+
         case 0x1a: // Get Disk Transfer Area address
         {
             m_dtaSeg = cpu->GetReg16(CpuInterface::DS);

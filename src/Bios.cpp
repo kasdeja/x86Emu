@@ -156,6 +156,25 @@ void Bios::Int11h(CpuInterface* cpu)
     cpu->SetReg16(CpuInterface::AX, (2 << 9) | (1 << 6) | (2 << 4));
 }
 
+void Bios::Int16h(CpuInterface* cpu)
+{
+    uint8_t func = cpu->GetReg8(CpuInterface::AH);
+
+    switch(func)
+    {
+        case 0x00: // Read key press
+        case 0x01: // Get the State of the keyboard buffer
+        {
+            cpu->SetReg16(CpuInterface::AX, 0); // no scancode
+            break;
+        }
+
+        default:
+            printf("Bios::Int16h() function 0x%02x not implemented yet!\n", func);
+            break;
+    }
+}
+
 void Bios::Int1Ah(CpuInterface* cpu)
 {
     uint8_t func = cpu->GetReg8(CpuInterface::AH);

@@ -39,6 +39,7 @@ private:
 
     Pic&       m_pic;
     uint8_t    m_cmd;
+    uint16_t   m_latch;
     PitChannel m_channel[3];
 };
 

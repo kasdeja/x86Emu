@@ -20,6 +20,7 @@ public:
     // public methods
     void Int10h(CpuInterface *cpu);
     void Int11h(CpuInterface *cpu);
+    void Int16h(CpuInterface *cpu);
     void Int1Ah(CpuInterface *cpu);
 
 private:

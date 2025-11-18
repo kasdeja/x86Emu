@@ -1317,6 +1317,47 @@ void Cpu::HandleREP(uint8_t opcode)
             m_register[Register::CX]--;
         }
     }
+    else if (opcode == 0xae) // repe scasb
+    {
+        uint8_t op1, op2, diff;
+
+        op1 = m_register[Register::AX] & 0xff;
+
+        while(m_register[Register::CX] > 0)
+        {
+            op2  = Load8(esBase + m_register[Register::DI]);
+            diff = op1 - op2;
+
+            m_register[Register::DI] += delta;
+            m_register[Register::CX]--;
+
+            if (diff != 0)
+                break;
+        }
+
+        SetSubFlags8(op1, op2, diff);
+    }
+    else if (opcode == 0xaf) // repe scasw
+    {
+        uint16_t op1, op2, diff;
+
+        delta <<= 1;
+        op1 = m_register[Register::AX];
+
+        while(m_register[Register::CX] > 0)
+        {
+            op2  = Load16(esBase + m_register[Register::DI]);
+            diff = op1 - op2;
+
+            m_register[Register::DI] += delta;
+            m_register[Register::CX]--;
+
+            if (diff != 0)
+                break;
+        }
+
+        SetSubFlags16(op1, op2, diff);
+    }
     else
     {
         // ac rep lodsb
@@ -2327,31 +2368,31 @@ void Cpu::ExecuteInstruction()
 
     m_instructionCnt++;
 
-    // static bool disasm = false;
-    //
-    // if (m_register[Register::CS] == 0x0cb3 && m_register[Register::IP] == 0x0bfa)
-    // {
-    //     disasm = true;
-    // }
-    //
-    // if (disasm)
-    // {
-    //     printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
-    //         m_register[Register::AX],
-    //         m_register[Register::BX],
-    //         m_register[Register::CX],
-    //         m_register[Register::DX],
-    //         m_register[Register::SI],
-    //         m_register[Register::DI],
-    //         m_register[Register::SP],
-    //         m_register[Register::BP],
-    //         m_register[Register::CS],
-    //         m_register[Register::DS],
-    //         m_register[Register::ES],
-    //         m_register[Register::SS]);
-    //
-    //     printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
-    // }
+    static bool disasm = false;
+
+//     if (m_register[Register::CS] == 0x0cb3 && m_register[Register::IP] == 0x0bfa)
+//     {
+//         disasm = true;
+//     }
+//
+//     if (disasm)
+//     {
+        printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
+            m_register[Register::AX],
+            m_register[Register::BX],
+            m_register[Register::CX],
+            m_register[Register::DX],
+            m_register[Register::SI],
+            m_register[Register::DI],
+            m_register[Register::SP],
+            m_register[Register::BP],
+            m_register[Register::CS],
+            m_register[Register::DS],
+            m_register[Register::ES],
+            m_register[Register::SS]);
+
+            printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+//     }
 
     switch(opcode)
     {
@@ -3033,11 +3074,37 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 1;
             break;
 
-//         case 0x60: // pusha
-//             break;
+        case 0x60: // pusha
+            {
+                uint16_t tmpSP = m_register[Register::SP];
 
-//         case 0x61: // popa
-//             break;
+                Push16(m_register[Register::AX]);
+                Push16(m_register[Register::CX]);
+                Push16(m_register[Register::DX]);
+                Push16(m_register[Register::BX]);
+                Push16(tmpSP);
+                Push16(m_register[Register::BP]);
+                Push16(m_register[Register::SI]);
+                Push16(m_register[Register::DI]);
+
+                m_register[Register::IP] += 1;
+            }
+            break;
+
+        case 0x61: // popa
+            {
+                m_register[Register::DI] = Pop16();
+                m_register[Register::SI] = Pop16();
+                m_register[Register::BP] = Pop16();
+                Pop16();
+                m_register[Register::BX] = Pop16();
+                m_register[Register::DX] = Pop16();
+                m_register[Register::CX] = Pop16();
+                m_register[Register::AX] = Pop16();
+
+                m_register[Register::IP] += 1;
+            }
+            break;
 
 //         case 0x62: // bound
 //             break;

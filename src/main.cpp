@@ -45,18 +45,18 @@ int main(int argc, char **argv)
     // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
     // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/TBLTEST2.EXE");
 
-    // dos->BuildEnv(envSeg, "C:\\WOLF\\WOLF3D.EXE", { "PATH=C:\\" });
-    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/WOLF3D.EXE");
-    // dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
-    // dos->SetPspSeg(pspSeg);
-    // dos->SetCwd("./wolf");
-
-    // dos->BuildEnv(envSeg, "C:\\LOTUS3\\LOTUS.EXE", { "PATH=C:\\" });
-    dos->BuildEnv(envSeg, "C:\\LOTUS3\\LOTUS.EXE", { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
-    auto imageInfo = dos->LoadExeFromFile(imageSeg, "lotus3/LOTUS.EXE");
+    dos->BuildEnv(envSeg, "C:\\WOLF\\WOLF3D.EXE", { "PATH=C:\\" });
+    auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/WOLF3D.EXE");
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
     dos->SetPspSeg(pspSeg);
-    dos->SetCwd("./lotus3");
+    dos->SetCwd("./wolf");
+
+    // dos->BuildEnv(envSeg, "C:\\LOTUS3\\LOTUS.EXE", { "PATH=C:\\" });
+    // dos->BuildEnv(envSeg, "C:\\LOTUS3\\LOTUS.EXE", { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
+    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "lotus3/LOTUS.EXE");
+    // dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
+    // dos->SetPspSeg(pspSeg);
+    // dos->SetCwd("./lotus3");
 
     cpu->onInterrupt =
         [cpu, dos, bios](int intNo)
@@ -112,7 +112,11 @@ int main(int argc, char **argv)
                     return pit->PortRead(port);
 
                 case 0x60:
-                    return keyboard->GetKey();
+                    {
+                        uint8_t key = keyboard->GetKey();
+                        printf("Got key %02x\n", key);
+                        return key;
+                    }
 
                 case 0x3c5:
                 case 0x3c9:
@@ -193,7 +197,7 @@ int main(int argc, char **argv)
     auto runEmulator =
         [cpu, pic, pit, keyboard](int64_t usec, int64_t instructionsPerSecond) -> bool
         {
-            constexpr int64_t batchSize = 100;
+            constexpr int64_t batchSize = 1000;
             int64_t instructionsToExecute = (instructionsPerSecond * usec) / 1000000;
 
             while(instructionsToExecute > 0)

@@ -2377,21 +2377,21 @@ void Cpu::ExecuteInstruction()
 //
 //     if (disasm)
 //     {
-        printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
-            m_register[Register::AX],
-            m_register[Register::BX],
-            m_register[Register::CX],
-            m_register[Register::DX],
-            m_register[Register::SI],
-            m_register[Register::DI],
-            m_register[Register::SP],
-            m_register[Register::BP],
-            m_register[Register::CS],
-            m_register[Register::DS],
-            m_register[Register::ES],
-            m_register[Register::SS]);
-
-            printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+        // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
+        //     m_register[Register::AX],
+        //     m_register[Register::BX],
+        //     m_register[Register::CX],
+        //     m_register[Register::DX],
+        //     m_register[Register::SI],
+        //     m_register[Register::DI],
+        //     m_register[Register::SP],
+        //     m_register[Register::BP],
+        //     m_register[Register::CS],
+        //     m_register[Register::DS],
+        //     m_register[Register::ES],
+        //     m_register[Register::SS]);
+        //
+        //     printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
 //     }
 
     switch(opcode)
@@ -3408,11 +3408,19 @@ void Cpu::ExecuteInstruction()
             RestoreLazyFlags();
             break;
 
-//         case 0x9e: // sahf
-//             break;
+        case 0x9e: // sahf
+            m_register[Register::FLAG] &= 0xff00;
+            m_register[Register::FLAG] |= ((m_register[Register::AX] >> 8) & 0xd7) | 2;
+            m_register[Register::IP] += 1;
+            RestoreLazyFlags();
+            break;
 
-//         case 0x9f: // lahf
-//             break;
+        case 0x9f: // lahf
+            RecalcFlags();
+            m_register[Register::AX] &= 0x00ff;
+            m_register[Register::AX] |= ((m_register[Register::FLAG] << 8) & 0xd7) | 2;
+            m_register[Register::IP] += 1;
+            break;
 
         case 0xa0: // mov al, moffs8
             m_register[Register::AX] = (m_register[Register::AX] & 0xff00) | Load8(m_segmentBase + Disp16(ip));

@@ -688,6 +688,11 @@ std::string Disasm::Process()
             length = 1;
             break;
 
+        case 0x27: // daa
+            instr  = "daa";
+            length = 1;
+            break;
+
         case 0x28: // sub r/m8, r8
             instr  = "sub " + ModRm8(ip) + ", " + ModRmReg8(ip);
             length = s_modRmInstLen[*ip];
@@ -720,6 +725,11 @@ std::string Disasm::Process()
 
         case 0x2e: // prefix - CS override
             instr  = "CS:";
+            length = 1;
+            break;
+
+        case 0x2f: // das
+            instr  = "das";
             length = 1;
             break;
 
@@ -1225,8 +1235,12 @@ std::string Disasm::Process()
         // case 0xd6: // salc
         //     break;
         //
-        // case 0xd7: // xlatb
-        //     break;
+
+        case 0xd7: // xlatb
+            instr = "xlatb";
+            length = 1;
+            break;
+
         //
         // case 0xd8: case 0xd9: case 0xda: case 0xdb:
         // case 0xdc: case 0xdd: case 0xde: case 0xdf: // fpu

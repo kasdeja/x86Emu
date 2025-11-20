@@ -44,6 +44,9 @@ private:
     uint16_t m_dtaSeg;
     uint16_t m_dtaOff;
 
+    uint16_t m_lastBlockSeg;
+    uint32_t m_lastBlockSize;
+
     uint16_t m_lastFd;
     std::string m_cwd;
     std::unordered_map<int, int> m_fdMap;

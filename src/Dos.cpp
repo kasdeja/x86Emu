@@ -95,6 +95,9 @@ Dos::Dos(Memory& memory)
 {
     m_fdMap[1] = 1;
     m_fdMap[2] = 1; //2;
+
+    m_lastBlockSeg  = 0x0100;
+    m_lastBlockSize = 0;
 }
 
 Dos::~Dos()
@@ -108,6 +111,19 @@ void Dos::Int21h(CpuInterface* cpu)
 
     switch(func)
     {
+        case 0x08: // Character Input without Echo
+            printf("MsDos::Int21h() function 0x08 - character input without echo\n");
+            // FIXME: implement? shall block if nothing available (which may be hard)
+            cpu->SetReg8(CpuInterface::AL, 32); // space
+            break;
+
+        case 0x0b: // Check Input Status
+            printf("MsDos::Int21h() function 0x0b - check input status\n");
+            // FIXME: implement?
+            // 0x00 - no character, 0xff - at least one
+            cpu->SetReg8(CpuInterface::AL, 0);
+            break;
+
         case 0x19: // Get current default drive
             cpu->SetReg8(CpuInterface::AL, 3);
             break;
@@ -357,12 +373,76 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x48: // Allocate memory
+        {
+            uint16_t newSeg = m_lastBlockSeg + (m_lastBlockSize + 15) / 16;
+            uint16_t maxAvail = 0x9fff - newSeg;
+            uint16_t requested = cpu->GetReg16(CpuInterface::BX);
+
+            printf("MsDos::Int21h() allocating %d bytes memory block, new segment 0x%04x\n", requested * 16, newSeg);
+
+            if (requested > maxAvail)
+            {
+                printf("MsDos::Int21h() allocation failed, not enough memory\n");
+                cpu->SetFlag(CpuInterface::CF, true);
+                cpu->SetReg16(CpuInterface::AX, 8);
+                cpu->SetReg16(CpuInterface::BX, maxAvail);
+                break;
+            }
+
+            m_lastBlockSeg = newSeg;
+            m_lastBlockSize = requested * 16;
+
+            cpu->SetReg16(CpuInterface::AX, newSeg);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x49: // Release memory
+        {
+            uint16_t seg = cpu->GetReg16(CpuInterface::ES);
+
+            printf("MsDos::Int21h() releasing %d bytes memory block, segment 0x%04x\n", m_lastBlockSize, m_lastBlockSeg);
+
+            if (seg != m_lastBlockSeg)
+            {
+                cpu->SetFlag(CpuInterface::CF, true);
+                cpu->SetReg16(CpuInterface::AX, 9);
+                break;
+            }
+
+            m_lastBlockSize = 0;
+            cpu->SetFlag(CpuInterface::CF, false);
+
+            break;
+        }
+
         case 0x4a: // Resize memory block
         {
             uint16_t seg     = cpu->GetReg16(CpuInterface::ES);
             uint32_t newSize = cpu->GetReg16(CpuInterface::BX) * 16;
 
             printf("MsDos::Int21h() resizing memory block 0x%04x to %d bytes\n", seg, newSize);
+
+            if (seg != m_lastBlockSeg)
+            {
+                printf("MsDos::Int21h() resizing failed, could not identify resized block\n");
+                cpu->SetFlag(CpuInterface::CF, true);
+                cpu->SetReg16(CpuInterface::AX, 9);
+                cpu->SetReg16(CpuInterface::BX, 0);
+                break;
+            }
+
+            if ((seg * 16 + newSize) > 0x9fff0)
+            {
+                printf("MsDos::Int21h() resizing failed, insufficient memory\n");
+                cpu->SetFlag(CpuInterface::CF, true);
+                cpu->SetReg16(CpuInterface::AX, 8);
+                cpu->SetReg16(CpuInterface::BX, 0x9fff - (seg + (m_lastBlockSize + 15) / 16));
+                break;
+            }
+
+            m_lastBlockSize = newSize;
             cpu->SetFlag(CpuInterface::CF, false);
             break;
         }
@@ -525,8 +605,6 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
         RelocEntry& reloc = relocTbl[n];
         uint16_t*   fixup = reinterpret_cast<uint16_t *>(m_memory + loadAddress + reloc.seg * 16 + reloc.off);
 
-        //printf("%04x:%04x off %d value 0x%04x\n", reloc.seg, reloc.off, reloc.seg * 16 + reloc.off, *fixup);
-
         *fixup += startSegment;
     }
 
@@ -539,6 +617,10 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
     result.initIP = header.initIP;
     result.initSS = header.initSS + startSegment;
     result.initSP = header.initSP;
+
+    // Set initial values for memory allocator;
+    m_lastBlockSeg = startSegment - 0x10;
+    m_lastBlockSize = imageSize + 0x100;
 
     return result;
 }

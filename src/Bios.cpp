@@ -3,6 +3,72 @@
 #include "Vga.h"
 #include "Bios.h"
 
+namespace
+{
+
+uint8_t KeyToChar(uint8_t key)
+{
+    switch(key & 0x7f)
+    {
+        case 0x1E: return 0x61;     // A
+        case 0x30: return 0x62;     // B
+        case 0x2E: return 0x63;     // C
+        case 0x20: return 0x64;     // D
+        case 0x12: return 0x65;     // E
+        case 0x21: return 0x66;     // F
+        case 0x22: return 0x67;     // G
+        case 0x23: return 0x68;     // H
+        case 0x17: return 0x69;     // I
+        case 0x24: return 0x6A;     // J
+        case 0x25: return 0x6B;     // K
+        case 0x26: return 0x6C;     // L
+        case 0x32: return 0x6D;     // M
+        case 0x31: return 0x6E;     // N
+        case 0x18: return 0x6F;     // O
+        case 0x19: return 0x70;     // P
+        case 0x10: return 0x71;     // Q
+        case 0x13: return 0x72;     // R
+        case 0x1F: return 0x73;     // S
+        case 0x14: return 0x74;     // T
+        case 0x16: return 0x75;     // U
+        case 0x2F: return 0x76;     // V
+        case 0x11: return 0x77;     // W
+        case 0x2D: return 0x78;     // X
+        case 0x15: return 0x79;     // Y
+        case 0x2C: return 0x7A;     // Z
+        case 0x02: return 0x31;     // 1
+        case 0x03: return 0x32;     // 2
+        case 0x04: return 0x33;     // 3
+        case 0x05: return 0x34;     // 4
+        case 0x06: return 0x35;     // 5
+        case 0x07: return 0x36;     // 6
+        case 0x08: return 0x37;     // 7
+        case 0x09: return 0x38;     // 8
+        case 0x0A: return 0x39;     // 9
+        case 0x0B: return 0x30;     // 0
+        case 0x0C: return 0x2D;     // -
+        case 0x0D: return 0x3D;     // =
+        case 0x1A: return 0x5B;     // [
+        case 0x1B: return 0x5D;     // ]
+        case 0x27: return 0x3B;     // ;
+        case 0x28: return 0x27;     // '
+        case 0x29: return 0x60;     // `
+        case 0x2B: return 0x5C;     // Backslash
+        case 0x33: return 0x2C;     // ,
+        case 0x34: return 0x2E;     // .
+        case 0x35: return 0x2F;     // /
+        case 0x0E: return 0x08;     // BackSpace
+        case 0x1C: return 0x0D;     // Enter
+        case 0x01: return 0x1B;     // Esc
+        case 0x39: return 0x20;     // SpaceBar
+        case 0x0F: return 0x09;     // Tab
+
+        default: return 0;
+    }
+}
+
+}
+
 // constructor & destructor
 Bios::Bios(Memory& memory, Vga& vga)
     : m_memory(memory.GetMem())
@@ -163,9 +229,37 @@ void Bios::Int16h(CpuInterface* cpu)
     switch(func)
     {
         case 0x00: // Read key press
+        {
+            if (HasKey())
+            {
+                uint16_t key = GetKey();
+
+                printf("Bios::Int16h() function 0x%02x read key 0x%2x\n", func, key);
+                cpu->SetReg16(CpuInterface::AX, (key << 8) | KeyToChar(key));
+            }
+            else
+            {
+                cpu->SetReg16(CpuInterface::AX, 0); // no scancode
+            }
+            break;
+        }
+
         case 0x01: // Get the State of the keyboard buffer
         {
-            cpu->SetReg16(CpuInterface::AX, 0); // no scancode
+            uint16_t key = ShowKey();
+
+            if (HasKey())
+            {
+                printf("Bios::Int16h() function 0x%02x get key 0x%2x\n", func, key);
+                cpu->SetReg16(CpuInterface::AX, (key << 8) | KeyToChar(key));
+                cpu->SetFlag(CpuInterface::ZF, false);
+            }
+            else
+            {
+                printf("Bios::Int16h() function 0x%02x no key\n", func, key);
+                cpu->SetReg16(CpuInterface::AX, 0); // no scancode
+                cpu->SetFlag(CpuInterface::ZF, true);
+            }
             break;
         }
 
@@ -197,3 +291,40 @@ void Bios::Int1Ah(CpuInterface* cpu)
             break;
     }
 }
+
+void Bios::AddKey(uint8_t key)
+{
+    if (key != 0)
+    {
+        m_keys.push(key);
+    }
+}
+
+uint8_t Bios::ShowKey()
+{
+    if (!m_keys.empty())
+    {
+        return m_keys.front();
+    }
+
+    return 0;
+}
+
+uint8_t Bios::GetKey()
+{
+    uint8_t key = 0;
+
+    if (!m_keys.empty())
+    {
+        key = m_keys.front();
+        m_keys.pop();
+    }
+
+    return key;
+}
+
+bool Bios::HasKey()
+{
+    return !m_keys.empty();
+}
+

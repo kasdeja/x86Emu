@@ -2,6 +2,7 @@
 #define X86EMU_PIC
 
 #include <inttypes.h>
+#include <functional>
 
 // forward declarations
 class CpuInterface;
@@ -19,6 +20,9 @@ public:
 
     void Interrupt(int num);
     void HandleInterrupts();
+    bool IsInService(int num);
+
+    std::function<void(int irqNo)> onAck;
 
 private:
     struct InterruptState

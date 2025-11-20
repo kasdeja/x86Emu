@@ -10,6 +10,7 @@ class Keyboard
 public:
     // public methods
     void    AddKey(uint8_t key);
+    void    RemoveKey();
     uint8_t GetKey();
     bool    HasKey();
 

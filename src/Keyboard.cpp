@@ -7,18 +7,26 @@ void Keyboard::AddKey(uint8_t key)
     m_keys.push(key);
 }
 
-uint8_t Keyboard::GetKey()
+void Keyboard::RemoveKey()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    uint8_t key = 0;
 
     if (!m_keys.empty())
     {
-        key = m_keys.front();
         m_keys.pop();
     }
+}
 
-    return key;
+uint8_t Keyboard::GetKey()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    if (!m_keys.empty())
+    {
+        return m_keys.front();
+    }
+
+    return 0;
 }
 
 bool Keyboard::HasKey()

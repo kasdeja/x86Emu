@@ -13,7 +13,7 @@ Memory::Memory(uint32_t ramSizeKb)
 
     ::memset(m_memory, 0, ramSize + 256 * 1024);
 
-    // Fill interrupt table with pseudo vectors and install handler for hardware interrupts.
+    // Clear interrupt table
     for(int n = 0; n < 256; n++)
     {
         reinterpret_cast<uint32_t *>(m_memory)[n] = 0;// 0xabcd1000 + n * 16;
@@ -24,24 +24,24 @@ Memory::Memory(uint32_t ramSizeKb)
     // e6 20           out 0x20, al
     // 58              pop ax
     // cf              iret
-    static uint8_t defaultIrqHandler[7] = { 0x50, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
+    static uint8_t defaultIrqHandler[7]   = { 0x50, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
+    static uint8_t keyboardIrqHandler[11] = { 0x50, 0xb0, 0xff, 0xe6, 0x68, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
 
     // f4 hlt
     static uint8_t defaultIntHandler[1] = { 0xcf };
 
     ::memcpy(m_memory + 0xfff00, defaultIrqHandler, 7);
     ::memcpy(m_memory + 0xfff10, defaultIntHandler, 1);
+    ::memcpy(m_memory + 0xfff20, keyboardIrqHandler, 11);
 
     // Fill interrupt table with pseudo vectors and install handler for hardware interrupts.
-    //for(int n = 0; n < 256; n++)
-    //{
-    //    reinterpret_cast<uint32_t *>(m_memory)[n] = 0xfff00010;
-    //}
-
     for(int n = 8; n < 16; n++)
     {
         reinterpret_cast<uint32_t *>(m_memory)[n] = 0xfff00000;
     }
+
+    // Install keyboard IRQ handler
+    reinterpret_cast<uint32_t *>(m_memory)[9] = 0xfff20000;
 }
 
 Memory::~Memory()

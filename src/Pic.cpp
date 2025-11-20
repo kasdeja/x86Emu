@@ -23,6 +23,10 @@ void Pic::PortWrite(uint16_t port, uint8_t value)
 {
     if (port == 0x20 && value == 0x20)
     {
+        if (onAck)
+        {
+            onAck(m_interruptInService);
+        }
         m_interruptInService = -1;
     }
 }
@@ -41,6 +45,11 @@ void Pic::HandleInterrupts()
 
     HandleInterrupt(0);  // timer interrupt
     HandleInterrupt(1);  // keyboard interrupt
+}
+
+bool Pic::IsInService(int num)
+{
+    return m_interruptInService == num;
 }
 
 // private methods

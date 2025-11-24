@@ -35,33 +35,42 @@ int main(int argc, char **argv)
     // uint16_t envSeg   = 0x0ff0;
     // uint16_t pspSeg   = 0x1000;
     // uint16_t imageSeg = 0x1010;
-    uint16_t nextSeg  = 0x9fff;
-
     uint16_t envSeg   = 0x07ca;
     uint16_t pspSeg   = 0x0813;
     uint16_t imageSeg = 0x0823;
+    uint16_t nextSeg  = 0x9fff;
 
     // dos->BuildEnv(envSeg, "C:\\WOLF\\TBLTEST2.EXE", { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
     // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
     // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/TBLTEST2.EXE");
 
-    dos->BuildEnv(envSeg, "C:\\MONKEY\\MONKEY.EXE", { "PATH=C:\\" });
-    auto imageInfo = dos->LoadExeFromFile(imageSeg, "monkey/MONKEY.EXE");
+    std::string game = (argc > 1) ? argv[1] : "wolf";
+    std::string gameCwd, gameImg, gameExe;
+
+    if (game == "wolf")
+    {
+        gameCwd = "./games/wolf";
+        gameImg = "./games/wolf/WOLF3D.EXE";
+        gameExe = "C:\\GAMES\\WOLF\\WOLF3D.EXE";
+    }
+    else if (game == "monkey")
+    {
+        gameCwd = "./games/monkey";
+        gameImg = "./games/monkey/MONKEY.EXE";
+        gameExe = "C:\\GAMES\\MONKEY\\MONKEY.EXE";
+    }
+    else if (game == "lotus3")
+    {
+        gameCwd = "./games/lotus3";
+        gameImg = "./games/lotus3/LOTUS.EXE";
+        gameExe = "C:\\GAMES\\LOTUS3\\LOTUS.EXE";
+    }
+
+    dos->BuildEnv(envSeg, gameExe, { "PATH=C:\\" });
+    auto imageInfo = dos->LoadExeFromFile(imageSeg, gameImg.c_str());
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
     dos->SetPspSeg(pspSeg);
-    dos->SetCwd("./monkey");
-
-    // dos->BuildEnv(envSeg, "C:\\WOLF\\WOLF3D.EXE", { "PATH=C:\\" });
-    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/WOLF3D.EXE");
-    // dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
-    // dos->SetPspSeg(pspSeg);
-    // dos->SetCwd("./wolf");
-
-    // dos->BuildEnv(envSeg, "C:\\LOTUS3\\LOTUS.EXE", { "PATH=C:\\" });
-    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "lotus3/LOTUS.EXE");
-    // dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
-    // dos->SetPspSeg(pspSeg);
-    // dos->SetCwd("./lotus3");
+    dos->SetCwd(gameCwd);
 
     pic->onAck = [keyboard](int irqNo)
         {

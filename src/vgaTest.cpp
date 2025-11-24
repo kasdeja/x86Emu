@@ -6,8 +6,8 @@
 
 void FillMemoryWithTestContent(Memory &memory)
 {
-    uint8_t* videoMemText = memory.GetMem() + 0xb8000;
     uint8_t* videoMem     = memory.GetVgaMem();
+    uint8_t* videoMemText = memory.GetVgaMem() + 0x18000;
 
     // Text mode sample content
     const char *str = "This is sample text. Hello World! :)";
@@ -132,14 +132,14 @@ int main(int argc, char **argv)
             if (cnt == 0)
                 vga.SetMode(Vga::Mode::Text);
 
-            vga.DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h, surface->pitch);
+            vga.DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h - 1, surface->pitch);
         }
         else
         {
             if (cnt == 500)
                 vga.SetMode(Vga::Mode::Mode13h);
 
-            vga.DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h, surface->pitch);
+            vga.DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h - 1, surface->pitch);
         }
 
         if (cnt++ >= 1000)

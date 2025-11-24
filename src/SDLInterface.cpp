@@ -211,6 +211,11 @@ void SDLInterface::MainLoop()
 
                         printf("window resized to %d, %d\n", event.window.data1, event.window.data2);
                     }
+                    else if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+                    {
+                        printf("closing app\n");
+                        m_running = false;
+                    }
                     break;
 
                 case SDL_QUIT:
@@ -220,7 +225,7 @@ void SDLInterface::MainLoop()
             }
         }
 
-        m_vga->DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h, surface->pitch);
+        m_vga->DrawScreenFiltered(reinterpret_cast<uint8_t *>(surface->pixels), surface->w, surface->h - 1, surface->pitch);
         SDL_UpdateWindowSurface(window);
 
         if (m_memoryView)

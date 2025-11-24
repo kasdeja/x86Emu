@@ -145,6 +145,7 @@ int main(int argc, char **argv)
         if (cnt++ >= 1000)
             cnt = 0;
 
+        printf("cnt %d\n", cnt);
         SDL_UpdateWindowSurface(window);
 
         // Do some heavy work

@@ -1,4 +1,5 @@
 _build
+_build-win-x64
 doc/**
 test/**
 games/wolf/*.WL6
@@ -13,4 +14,5 @@ games/lotus3/*.EXE
 games/lotus3/*.DAT
 games/*.EXE
 games/*.MAP
+win-x64/SDL*
 wolf_src

@@ -13,12 +13,16 @@ add_executable(x86Emu
     main.cpp
 )
 
-target_link_libraries(x86Emu SDL2 pthread)
-
 add_executable(vgaTest
     Memory.cpp
     Vga.cpp
     vgaTest.cpp
 )
 
-target_link_libraries(vgaTest SDL2)
+if(WIN32)
+    target_link_libraries(x86Emu ${SDL2_LIBRARY})
+    target_link_libraries(vgaTest ${SDL2_LIBRARY})
+else()
+    target_link_libraries(x86Emu SDL2 pthread)
+    target_link_libraries(vgaTest SDL2)
+endif()

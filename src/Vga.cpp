@@ -8,6 +8,10 @@
 #define MAX_H_CUTOFF 0.8
 #define MAX_V_CUTOFF 0.85
 
+#ifdef _WIN32
+#define aligned_alloc _aligned_malloc
+#endif
+
 namespace
 {
     int gcd(int a, int b)

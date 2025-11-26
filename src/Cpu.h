@@ -28,6 +28,7 @@ public:
     Memory& GetMem() override;
 
     bool Run(int nCycles) override;
+    void Stop() override;
     void Interrupt(int num) override;
     bool HardwareInterrupt(int num) override;
 
@@ -37,7 +38,8 @@ private:
     enum State
     {
         InvalidOp       = 1,
-        SegmentOverride = 2
+        SegmentOverride = 2,
+        Finished        = 4
     };
 
     enum Register

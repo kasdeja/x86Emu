@@ -8,6 +8,10 @@
 #include "Memory.h"
 #include "Dos.h"
 
+#ifndef _WIN32
+#define O_BINARY 0
+#endif
+
 // EXE header
 //
 //   Offset Size Contents
@@ -181,11 +185,11 @@ void Dos::Int21h(CpuInterface* cpu)
 
             printf("MsDos::Int21h() function 0x%02x path '%s' accessMode %d\n", func, path, accessMode);
 
-            int fd = ::open((m_cwd + "/" + path).c_str(), O_RDONLY);
+            int fd = ::open((m_cwd + "/" + path).c_str(), O_RDONLY | O_BINARY);
 
             if (fd != -1)
             {
-                printf("MsDos::Int21h() function 0x%02x path '%s' opened\n", func, path);
+                printf("MsDos::Int21h() function 0x%02x path '%s' opened fd %d\n", func, path, m_lastFd);
                 m_fdMap[m_lastFd] = fd;
 
                 cpu->SetReg16(CpuInterface::AX, m_lastFd);
@@ -242,7 +246,7 @@ void Dos::Int21h(CpuInterface* cpu)
             int fd = m_fdMap[dosFd];
             int bytesRead = ::read(fd, dstBuffer, bytes);
 
-            printf("MsDos::Int21h() function 0x%02x read %d bytes from fd %d\n", func, bytesRead, dosFd);
+            printf("MsDos::Int21h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, dosFd, bytes);
 
             cpu->SetReg16(CpuInterface::AX, bytesRead);
             cpu->SetFlag(CpuInterface::CF, false);
@@ -467,7 +471,8 @@ void Dos::Int21h(CpuInterface* cpu)
         }
 
         case 0x4c: // Exit
-            ::exit(-1);
+            printf("MsDos::Int21h() function 0x%02x\n", func);
+            cpu->Stop();
             break;
 
         default:
@@ -547,7 +552,7 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
     ImageInfo result;
 
     // Open file
-    int fd = ::open(filename, O_RDONLY);
+    int fd = ::open(filename, O_RDONLY | O_BINARY);
 
     if (fd < 0)
     {

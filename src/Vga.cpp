@@ -9,7 +9,7 @@
 #define MAX_V_CUTOFF 0.85
 
 #ifdef _WIN32
-#define aligned_alloc _aligned_malloc
+#define aligned_alloc(a, b) _aligned_malloc(b, a)
 #endif
 
 namespace
@@ -87,7 +87,7 @@ Vga::Vga(Memory& memory)
     m_startAddress      = 0;
 
     // Alloc memory
-    m_linear       = reinterpret_cast<uint8_t *>(aligned_alloc(32,  64 * 1024));
+    m_linear       = reinterpret_cast<uint8_t *>(aligned_alloc(32,  64 * 1024 + 1024));
     m_videoMem     = memory.GetVgaMem();
     m_videoMemText = m_videoMem + 0x18000; //memory.GetMem() + 0xb8000;
     m_linebuffer   = reinterpret_cast<__m128i *>(aligned_alloc(32, 2048 * 8 * 3 * sizeof(short)));
@@ -104,11 +104,11 @@ Vga::Vga(Memory& memory)
         m_luminance[n] = x;
     }
 
-    for(int n = 0; n < 65536; n++)
-        m_linear[n] = 255;
-
-    for(int n = 0; n < 4096; n++)
+    for(int n = 0; n < 32768; n++)
         m_linear[n] = 0;
+
+    for(int n = 32768; n < 65536; n++)
+        m_linear[n] = 255;
 
     for(int n = 0; n < 4096; n++)
     {
@@ -117,7 +117,7 @@ Vga::Vga(Memory& memory)
         if (x > 255.0)
             x = 255.0;
 
-        m_linear[n + 1024] = x;
+        m_linear[n + 32768] = x;
     }
 
     // Initialize colormap
@@ -560,6 +560,7 @@ void Vga::SetMode(Vga::Mode mode)
     m_currentMode   = mode;
     m_currentWidth  = 0;
     m_currentHeight = 0;
+    m_chain4        = true;
 
     if (m_currentMode == Vga::Mode13h)
     {
@@ -807,7 +808,7 @@ void Vga::DrawMode13hScreenFiltered(uint8_t* pixels, int width, int height, int 
     __m128i cfp  = _mm_setzero_si128();
     __m128i fix  = _mm_setzero_si128();
 
-    (reinterpret_cast<short *>(&fix))[0] = 1024;
+    (reinterpret_cast<short *>(&fix))[0] = 32768;
     fix = _mm_broadcastw_epi16(fix);
 
     for(int y = 0; y < 200; y += 8)
@@ -930,9 +931,9 @@ void Vga::DrawMode13hScreenFiltered(uint8_t* pixels, int width, int height, int 
             b = _mm_add_epi16(b, fix);
             c = _mm_add_epi16(c, fix);
 
-            short* aa = reinterpret_cast<short *>(&a);
-            short* bb = reinterpret_cast<short *>(&b);
-            short* cc = reinterpret_cast<short *>(&c);
+            uint16_t* aa = reinterpret_cast<uint16_t *>(&a);
+            uint16_t* bb = reinterpret_cast<uint16_t *>(&b);
+            uint16_t* cc = reinterpret_cast<uint16_t *>(&c);
 
             *pixel++ =  (linear[aa[0]] << 16) +
                         (linear[aa[1]] << 8) +
@@ -1012,7 +1013,7 @@ void Vga::DrawTextModeScreenFiltered(uint8_t* pixels, int width, int height, int
     __m128i cfp  = _mm_setzero_si128();
     __m128i fix  = _mm_setzero_si128();
 
-    (reinterpret_cast<short *>(&fix))[0] = 1024;
+    (reinterpret_cast<short *>(&fix))[0] = 32768;
     fix = _mm_broadcastw_epi16(fix);
 
     for(int y = 0; y < 400; y += 8)
@@ -1123,9 +1124,9 @@ void Vga::DrawTextModeScreenFiltered(uint8_t* pixels, int width, int height, int
             b = _mm_add_epi16(b, fix);
             c = _mm_add_epi16(c, fix);
 
-            short* aa = reinterpret_cast<short *>(&a);
-            short* bb = reinterpret_cast<short *>(&b);
-            short* cc = reinterpret_cast<short *>(&c);
+            uint16_t* aa = reinterpret_cast<uint16_t *>(&a);
+            uint16_t* bb = reinterpret_cast<uint16_t *>(&b);
+            uint16_t* cc = reinterpret_cast<uint16_t *>(&c);
 
             *pixel++ =  (linear[aa[0]] << 16) +
                         (linear[aa[1]] << 8) +

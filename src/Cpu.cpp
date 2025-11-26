@@ -178,11 +178,16 @@ bool Cpu::Run(int nCycles)
     {
         ExecuteInstruction();
 
-        if (m_state & State::InvalidOp)
+        if ((m_state & State::InvalidOp) || (m_state & State::Finished))
             return false;
     }
 
     return true;
+}
+
+void Cpu::Stop()
+{
+    m_state |= State::Finished;
 }
 
 void Cpu::Interrupt(int num)
@@ -3956,6 +3961,11 @@ void Cpu::ExecuteInstruction()
         if (m_state & State::InvalidOp)
         {
             printf("Invalid opcode 0x%02x\n", *(ip - 1));
+            return;
+        }
+
+        if (m_state & State::Finished)
+        {
             return;
         }
 

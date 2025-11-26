@@ -3,7 +3,7 @@
 
 Memory::Memory(uint32_t ramSizeKb)
 {
-    uint32_t ramSize = ((ramSizeKb + 63) & 0xffffff80) * 1024;
+    uint32_t ramSize = ramSizeKb * 1024;
 
     m_memory    = new uint8_t[ramSize + 256 * 1024];
     m_vgaMemory = m_memory + ramSize;
@@ -25,6 +25,14 @@ Memory::Memory(uint32_t ramSizeKb)
     // 58              pop ax
     // cf              iret
     static uint8_t defaultIrqHandler[7]   = { 0x50, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
+
+    // 50              push ax
+    // b0 ff           mov al, 0xff
+    // e6 68           out 0x68, al
+    // b0 20           mov al, 0x20
+    // e6 20           out 0x20, al
+    // 58              pop ax
+    // cf              iret
     static uint8_t keyboardIrqHandler[11] = { 0x50, 0xb0, 0xff, 0xe6, 0x68, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
 
     // f4 hlt
@@ -46,7 +54,7 @@ Memory::Memory(uint32_t ramSizeKb)
 
 Memory::~Memory()
 {
-    delete m_memory;
+    delete [] m_memory;
 }
 
 uint8_t* Memory::GetMem()

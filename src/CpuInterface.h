@@ -37,6 +37,7 @@ public:
     virtual Memory& GetMem() = 0;
 
     virtual bool Run(int nCycles) = 0;
+    virtual void Stop() = 0;
     virtual void Interrupt(int num) = 0;
     virtual bool HardwareInterrupt(int num) = 0;
 

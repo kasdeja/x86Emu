@@ -1,3 +1,4 @@
+#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -148,6 +149,8 @@ int main(int argc, char **argv)
                     return vga->PortRead(port);
 
                 case 0x201: // Joystick, ignore
+                case 0x388: // Adlib Address / Status, ignore
+                case 0x389: // Adlib Data port, ignore
                     return 0;
 
                 default:
@@ -267,6 +270,7 @@ int main(int argc, char **argv)
 
                     ::usleep(5000);
                 }
+                printf("Finished...\n");
             });
 
         sdl->MainLoop();

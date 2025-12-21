@@ -304,11 +304,6 @@ inline void Cpu::Store16(std::size_t linearAddr, uint16_t value)
     // printf("store %08lx val 0x%04x (was 0x%04x)\n",
     //     linearAddr, value, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
 
-    // if (linearAddr == 0xa0000 && value != 0)
-    // {
-    //     m_state |= State::InvalidOp;
-    // }
-
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
         uint32_t addr = linearAddr - 0xa0000;
@@ -326,11 +321,6 @@ inline void Cpu::Store8(std::size_t linearAddr, uint8_t value)
 {
     // printf("store %08lx val 0x%02x (was 0x%02x)\n",
     //     linearAddr, value, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
-
-    // if (linearAddr == 0xa0000 && value != 0)
-    // {
-    //     m_state |= State::InvalidOp;
-    // }
 
     if ((linearAddr & 0xfe0000) == 0xa0000)
     {
@@ -3847,8 +3837,11 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += offset + 3;
             break;
 
-//         case 0xea: // jmp far
-//             break;
+        case 0xea: // jmp far ptr16:16
+            m_register[Register::IP] += 5;
+            m_register[Register::CS] = Imm16(ip + 2);
+            m_register[Register::IP] = Imm16(ip);
+            break;
 
         case 0xeb: // jmp rel8
             offset = Disp8(ip);
@@ -3876,8 +3869,10 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 1;
             break;
 
-//         case 0xf0: // prefix - lock
-//             break;
+        case 0xf0: // prefix - lock
+            m_register[Register::IP] += 1;
+            // goto RestartDecoding;
+            break;
 
 //         case 0xf1: // icebp / int 1
 //             break;

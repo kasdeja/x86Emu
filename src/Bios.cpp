@@ -143,13 +143,38 @@ void Bios::Int10h(CpuInterface* cpu)
 
         case 0x0f: // Get current video mode
         {
-            uint32_t tickCount = 12 * 60 * 60 * 18.2;
-
             uint8_t currentMode = 3; // 80x25 color
             uint8_t columns     = 80;
 
             cpu->SetReg16(CpuInterface::AX, (columns << 8) | currentMode);
             cpu->SetReg8(CpuInterface::BH, 0);
+
+            break;
+        }
+
+        case 0x10: // Palette functions
+        {
+            uint8_t subService = cpu->GetReg8(CpuInterface::AL);
+
+            if (subService == 0x12)
+            {
+                uint16_t idx   = cpu->GetReg16(CpuInterface::BX);
+                uint16_t count = cpu->GetReg16(CpuInterface::CX);
+
+                std::size_t linearAddr = cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::DX);
+
+                for(int n = 0; n < count; n++, idx++)
+                {
+                    m_vga.PortWrite(0x3c8, n);
+                    m_vga.PortWrite(0x3c9, m_memory[linearAddr++]);
+                    m_vga.PortWrite(0x3c9, m_memory[linearAddr++]);
+                    m_vga.PortWrite(0x3c9, m_memory[linearAddr++]);
+                }
+            }
+            else
+            {
+                printf("Bios::Int10h() function 0x%02x subservice 0x%02x not implemented yet!\n", func, subService);
+            }
 
             break;
         }

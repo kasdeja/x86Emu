@@ -1024,7 +1024,7 @@ std::string Disasm::Process()
             break;
 
         case 0x9a: // call far ptr16:16
-            instr  = "call " + Hex16(*reinterpret_cast<uint16_t *>(ip + 2)) + ":" + Hex16(*reinterpret_cast<uint16_t *>(ip));
+            instr  = "call far " + Hex16(*reinterpret_cast<uint16_t *>(ip + 2)) + ":" + Hex16(*reinterpret_cast<uint16_t *>(ip));
             length = 5;
             break;
 
@@ -1294,6 +1294,11 @@ std::string Disasm::Process()
         case 0xe9: // jmp rel16
             instr = "jmp " + Rel16(ip, offset + 3);
             length = 3;
+            break;
+
+        case 0xea: // jmp far ptr16:16
+            instr  = "jmp far " + Hex16(*reinterpret_cast<uint16_t *>(ip + 2)) + ":" + Hex16(*reinterpret_cast<uint16_t *>(ip));
+            length = 5;
             break;
 
         case 0xeb: // jmp rel8

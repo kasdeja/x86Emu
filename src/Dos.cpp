@@ -178,14 +178,22 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x3b: // Set Current Directory
+        {
+            char*  path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+            printf("MsDos::Int21h() function 0x%02x path '%s' -> '%s'\n", func, path, FixPath(path).c_str());
+
+            break;
+        }
+
         case 0x3d: // Open file
         {
             char*   path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
             uint8_t accessMode = cpu->GetReg8(CpuInterface::AL);
 
-            printf("MsDos::Int21h() function 0x%02x path '%s' accessMode %d\n", func, path, accessMode);
+            printf("MsDos::Int21h() function 0x%02x path '%s' -> '%s' accessMode %d\n", func, path, FixPath(path).c_str(), accessMode);
 
-            int fd = ::open((m_cwd + "/" + path).c_str(), O_RDONLY | O_BINARY);
+            int fd = ::open(FixPath(path).c_str(), O_RDONLY | O_BINARY);
 
             if (fd != -1)
             {
@@ -337,11 +345,10 @@ void Dos::Int21h(CpuInterface* cpu)
         case 0x44: // I/O Control for device (IOCTL)
         {
             uint8_t cmd = cpu->GetReg8(CpuInterface::AL);
+            uint16_t fd = cpu->GetReg16(CpuInterface::BX);
 
             if (cmd == 0)
             {
-                uint16_t fd = cpu->GetReg16(CpuInterface::BX);
-
                 if (fd < 3)
                 {
                     uint16_t devInfo = (1 << 7) | (fd == 0 ? 1 : 2);
@@ -364,14 +371,13 @@ void Dos::Int21h(CpuInterface* cpu)
             }
             else if (cmd == 1)
             {
-                uint16_t fd      = cpu->GetReg16(CpuInterface::BX);
                 uint16_t devInfo = cpu->GetReg16(CpuInterface::DX);
 
                 printf("MsDos::Int21h() ioctl %d set device info fd %d info %04x\n", cmd, fd, devInfo);
             }
             else
             {
-                printf("MsDos::Int21h() ioctl %d not implemented for device!\n", cmd);
+                printf("MsDos::Int21h() ioctl %d not implemented for device, fd %d!\n", cmd, fd);
             }
 
             break;
@@ -547,6 +553,11 @@ void Dos::SetCwd(std::string const& cwd)
     m_cwd = cwd;
 }
 
+void Dos::SetCDrive(std::string const& cDrive)
+{
+    m_cDrive = cDrive;
+}
+
 Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
 {
     ImageInfo result;
@@ -628,4 +639,33 @@ Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
     m_lastBlockSize = imageSize + 0x100;
 
     return result;
+}
+
+// private methods
+std::string Dos::FixPath(std::string const& dosPath)
+{
+    std::string path = dosPath;
+
+    for(std::size_t n = 0; n < path.size(); n++)
+    {
+        char& ch = path[n];
+
+        if (ch == '\\')
+        {
+            ch = '/';
+        }
+        else
+        {
+            ch = std::tolower(ch);
+        }
+    }
+
+    if (path.substr(0, 2) == "c:")
+    {
+        return m_cDrive + path.substr(2);
+    }
+    else
+    {
+        return m_cwd + '/' + path;
+    }
 }

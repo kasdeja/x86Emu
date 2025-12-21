@@ -34,6 +34,7 @@ public:
     void      BuildPsp(uint16_t pspSeg, uint16_t envSeg, uint16_t nextSeg, const std::string &args);
     void      SetPspSeg(uint16_t pspSeg);
     void      SetCwd(std::string const& cwd);
+    void      SetCDrive(std::string const& cDrive);
 
     ImageInfo LoadExeFromFile(uint16_t startSegment, const char *filename);
 
@@ -49,8 +50,10 @@ private:
 
     uint16_t m_lastFd;
     std::string m_cwd;
+    std::string m_cDrive;
     std::unordered_map<int, int> m_fdMap;
 
+    std::string FixPath(std::string const& dosPath);
 };
 
 #endif /* X86EMU_DOS */

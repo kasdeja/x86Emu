@@ -42,6 +42,10 @@ Memory::Memory(uint32_t ramSizeKb)
     ::memcpy(m_memory + 0xfff10, defaultIntHandler, 1);
     ::memcpy(m_memory + 0xfff20, keyboardIrqHandler, 11);
 
+    // Bios Data Area (BDA)
+    *reinterpret_cast<uint16_t *>(m_memory + 0x413) = 639;
+    *reinterpret_cast<uint16_t *>(m_memory + 0x463) = 0x3d4;
+
     // Fill interrupt table with pseudo vectors and install handler for hardware interrupts.
     for(int n = 8; n < 16; n++)
     {

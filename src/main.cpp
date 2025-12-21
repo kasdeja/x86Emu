@@ -37,8 +37,8 @@ int main(int argc, char **argv)
     // uint16_t pspSeg   = 0x1000;
     // uint16_t imageSeg = 0x1010;
     uint16_t envSeg   = 0x07ca;
-    uint16_t pspSeg   = 0x0813;
-    uint16_t imageSeg = 0x0823;
+    uint16_t pspSeg   = 0x0814;
+    uint16_t imageSeg = 0x0824;
     uint16_t nextSeg  = 0x9fff;
 
     // dos->BuildEnv(envSeg, "C:\\WOLF\\TBLTEST2.EXE", { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
@@ -51,27 +51,71 @@ int main(int argc, char **argv)
     if (game == "wolf")
     {
         gameCwd = "./games/wolf";
-        gameImg = "./games/wolf/WOLF3D.EXE";
-        gameExe = "C:\\GAMES\\WOLF\\WOLF3D.EXE";
+        gameImg = "./games/wolf/wolf3d.exe";
+        gameExe = "C:\\WOLF\\WOLF3D.EXE";
     }
     else if (game == "monkey")
     {
         gameCwd = "./games/monkey";
-        gameImg = "./games/monkey/MONKEY.EXE";
-        gameExe = "C:\\GAMES\\MONKEY\\MONKEY.EXE";
+        gameImg = "./games/monkey/monkey.exe";
+        gameExe = "C:\\MONKEY\\MONKEY.EXE";
     }
     else if (game == "lotus3")
     {
         gameCwd = "./games/lotus3";
-        gameImg = "./games/lotus3/LOTUS.EXE";
-        gameExe = "C:\\GAMES\\LOTUS3\\LOTUS.EXE";
+        gameImg = "./games/lotus3/lotus.exe";
+        gameExe = "C:\\LOTUS3\\LOTUS.EXE";
     }
+    else if (game == "tyrian")
+    {
+        gameCwd = "./games/tyrian";
+        gameImg = "./games/tyrian/tyrian.exe";
+        gameExe = "C:\\TYRIAN\\TYRIAN.EXE";
+    }
+    else if (game == "another")
+    {
+        gameCwd = "./games/another";
+        gameImg = "./games/another/another.exe";
+        gameExe = "C:\\ANOTHER\\ANOTHER.EXE";
+    }
+    else if (game == "prehist2")
+    {
+        gameCwd = "./games/prehist2";
+        gameImg = "./games/prehist2/pre2.exe";
+        gameExe = "C:\\PREHIST2\\PRE2.EXE";
+    }
+    else if (game == "priv")
+    {
+        gameCwd = "./games/priv";
+        gameImg = "./games/priv/priv.exe";
+        gameExe = "C:\\PRIV\\PRIV.EXE";
+    }
+    else if (game == "tie")
+    {
+        gameCwd = "./games/tie";
+        gameImg = "./games/tie/tie.exe";
+        gameExe = "C:\\TIE\\TIE.EXE";
+    }
+    else if (game == "wc1")
+    {
+        gameCwd = "./games/wc1";
+        gameImg = "./games/wc1/wc.exe";
+        gameExe = "C:\\WC1\\wc.EXE";
+    }
+    else if (game == "xwing")
+    {
+        gameCwd = "./games/xwing";
+        gameImg = "./games/xwing/xwing.exe";
+        gameExe = "C:\\XWING\\XWING.EXE";
+    }
+
+    dos->SetCDrive("./games");
+    dos->SetCwd(gameCwd);
 
     dos->BuildEnv(envSeg, gameExe, { "PATH=C:\\" });
     auto imageInfo = dos->LoadExeFromFile(imageSeg, gameImg.c_str());
     dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
     dos->SetPspSeg(pspSeg);
-    dos->SetCwd(gameCwd);
 
     pic->onAck = [keyboard](int irqNo)
         {
@@ -217,6 +261,11 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::DS, pspSeg);
     cpu->SetReg16(CpuInterface::ES, pspSeg);
     cpu->SetReg16(CpuInterface::AX, 0); // was 2, why?
+
+    cpu->SetReg16(CpuInterface::CX, 0xff);
+    cpu->SetReg16(CpuInterface::SI, 0x00);
+    cpu->SetReg16(CpuInterface::DI, 0x80);
+    cpu->SetReg16(CpuInterface::BP, 0x91C);
 
     auto runEmulator =
         [cpu, pic, pit, keyboard](int64_t usec, int64_t instructionsPerSecond) -> bool

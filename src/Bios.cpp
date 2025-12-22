@@ -211,7 +211,24 @@ void Bios::Int10h(CpuInterface* cpu)
             }
 
             break;
-        };
+        }
+
+        case 0x1b: // Get VGA Functionality and State Info
+        {
+            // FIXME: mostly workaround
+            uint8_t *data = reinterpret_cast<uint8_t *>(m_memory) + cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::DI);
+
+            data[4] = 3;
+            data[5] = 80;
+            data[7] = 0;
+            data[8] = 16;
+            data[9] = 0;
+            data[34] = 19;
+            data[42] = 2;
+
+            cpu->SetReg8(CpuInterface::AL, 0x1b);
+            break;
+        }
 
         default:
             printf("Bios::Int10h() function 0x%02x not implemented yet!\n", func);
@@ -245,6 +262,11 @@ void Bios::Int11h(CpuInterface* cpu)
 //                      11                   80 x 25 Monochrome
 
     cpu->SetReg16(CpuInterface::AX, (2 << 9) | (1 << 6) | (2 << 4));
+}
+
+void Bios::Int12h(CpuInterface* cpu)
+{
+    cpu->SetReg16(CpuInterface::AX, 639);
 }
 
 void Bios::Int16h(CpuInterface* cpu)

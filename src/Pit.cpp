@@ -23,14 +23,14 @@ uint8_t Pit::PortRead(uint16_t port)
     uint8_t result = m_latch & 0xff;
     m_latch >>= 8;
 
-    //printf("Handled read port = 0x%04x value 0x%02x\n", port, result);
+    printf("Handled read port = 0x%04x value 0x%02x\n", port, result);
 
     return result;
 }
 
 void Pit::PortWrite(uint16_t port, uint8_t value)
 {
-    //printf("Handled read write = 0x%04x value 0x%02x\n", port, value);
+    printf("Handled read write = 0x%04x value 0x%02x\n", port, value);
     if (port == 0x43)
     {
         m_cmd = value;
@@ -63,6 +63,8 @@ void Pit::PortWrite(uint16_t port, uint8_t value)
             channel.byteNumber = 0;
             channel.divisor    = (channel.divisorReg > 0) ? channel.divisorReg : 65536;
             channel.tickCount  = channel.divisor;
+
+            printf("pit divisor %lf freq %f\n", channel.divisor, 1191181.6666 / channel.divisor);
         }
     }
 }

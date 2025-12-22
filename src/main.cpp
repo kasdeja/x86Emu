@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 
     dos->BuildEnv(envSeg, gameExe, { "PATH=C:\\" });
     auto imageInfo = dos->LoadExeFromFile(imageSeg, gameImg.c_str());
-    dos->BuildPsp(pspSeg, envSeg, nextSeg, "");
+    dos->BuildPsp(pspSeg, envSeg, nextSeg, "\r\r\r\r\r\r\r\r");
     dos->SetPspSeg(pspSeg);
 
     pic->onAck = [keyboard](int irqNo)
@@ -128,7 +128,36 @@ int main(int argc, char **argv)
     cpu->onInterrupt =
         [cpu, dos, bios](int intNo)
         {
-            if (intNo == 0x21)
+            if (intNo == 0x01) // Single step / int 21 alias??? WTF?
+            {
+                printf("INT1 called\n");
+                dos->Int21h(cpu);
+            }
+            else if (intNo == 0x10)
+            {
+                bios->Int10h(cpu);
+            }
+            else if (intNo == 0x11)
+            {
+                bios->Int11h(cpu);
+            }
+            else if (intNo == 0x12)
+            {
+                bios->Int12h(cpu);
+            }
+            else if (intNo == 0x15)
+            {
+                // Do nothing
+            }
+            else if (intNo == 0x16)
+            {
+                bios->Int16h(cpu);
+            }
+            else if (intNo == 0x1a)
+            {
+                bios->Int1Ah(cpu);
+            }
+            else if (intNo == 0x21)
             {
                 dos->Int21h(cpu);
             }
@@ -139,22 +168,6 @@ int main(int argc, char **argv)
             else if (intNo == 0x33) // Mouse
             {
                 // Do nothing
-            }
-            else if (intNo == 0x10)
-            {
-                bios->Int10h(cpu);
-            }
-            else if (intNo == 0x11)
-            {
-                bios->Int11h(cpu);
-            }
-            else if (intNo == 0x16)
-            {
-                bios->Int16h(cpu);
-            }
-            else if (intNo == 0x1a)
-            {
-                bios->Int1Ah(cpu);
             }
             else if (intNo == 0x74) // ???
             {
@@ -169,6 +182,7 @@ int main(int argc, char **argv)
     cpu->onPortRead =
         [vga, pic, pit, keyboard](uint16_t port, int size) -> uint32_t
         {
+            //printf("read port = 0x%04x, size = %d\n", port, size);
             switch(port)
             {
                 case 0x20: case 0x21:
@@ -206,6 +220,7 @@ int main(int argc, char **argv)
     cpu->onPortWrite =
         [vga, pic, pit, bios, keyboard](uint16_t port, int size, uint32_t value)
         {
+            //printf("write port = 0x%04x, size = %d, value = %d (0x%04x)\n", port, size, value, value);
             switch(port)
             {
                 case 0x20: case 0x21:

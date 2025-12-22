@@ -54,6 +54,8 @@ private:
     std::unordered_map<int, int> m_fdMap;
 
     std::string FixPath(std::string const& dosPath);
+    std::string DosPath(std::string const& path);
+    ImageInfo LoadImage(uint16_t startSegment, const char *filename);
 };
 
 #endif /* X86EMU_DOS */

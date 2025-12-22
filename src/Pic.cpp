@@ -62,6 +62,7 @@ void Pic::HandleInterrupt(int num)
 
     if (m_cpu.HardwareInterrupt(num + 8))
     {
+        //printf("HandleInterrupt() %d\n", num);
         m_interruptInService = num;
         interrupt.raised = false;
     }

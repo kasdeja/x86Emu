@@ -259,22 +259,26 @@ uint8_t Vga::PortRead(uint16_t port)
     {
         // TODO: stub
         m_verticalRetraceCnt++;
+        uint8_t result;
 
-        if (m_verticalRetraceCnt >= 60)
+        if (m_verticalRetraceCnt >= 6000)
             m_verticalRetraceCnt = 0;
 
-        if (m_verticalRetraceCnt < 40)
+        if (m_verticalRetraceCnt < 4000)
         {
-            return m_verticalRetraceCnt & 1;
+            result = m_verticalRetraceCnt & 1;
         }
-        else if (m_verticalRetraceCnt < 50)
+        else if (m_verticalRetraceCnt < 5000)
         {
-            return 0x08;
+            result =  0x08;
         }
         else
         {
-            return 0x01; // no retrace, no display
+            result =  0x01; // no retrace, no display
         }
+
+        //printf("VGA retrace cnt %d res %02x\n", m_verticalRetraceCnt, result);
+        return result;
     }
     else
     {

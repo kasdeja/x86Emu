@@ -129,7 +129,7 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
 
         case 0x19: // Get current default drive
-            cpu->SetReg8(CpuInterface::AL, 3);
+            cpu->SetReg8(CpuInterface::AL, 2); // C:
             break;
 
         case 0x1a: // Get Disk Transfer Area address
@@ -181,8 +181,7 @@ void Dos::Int21h(CpuInterface* cpu)
         case 0x3b: // Set Current Directory
         {
             char*  path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
-            printf("MsDos::Int21h() function 0x%02x path '%s' -> '%s'\n", func, path, FixPath(path).c_str());
-
+            printf("MsDos::Int21h() function 0x%02x path '%s' -> '%s' not implemented!\n", func, path, FixPath(path).c_str());
             break;
         }
 
@@ -226,6 +225,7 @@ void Dos::Int21h(CpuInterface* cpu)
                 break;
             }
 
+            cpu->SetFlag(CpuInterface::CF, false);
             printf("MsDos::Int21h() function 0x%02x close fd %d\n", func, dosFd);
 
             int fd = m_fdMap[dosFd];
@@ -383,6 +383,20 @@ void Dos::Int21h(CpuInterface* cpu)
             break;
         }
 
+        case 0x47:
+        {
+            cpu->SetReg16(CpuInterface::AX, 0);
+            cpu->SetFlag(CpuInterface::CF, false);
+
+            std::string dosPath = DosPath(m_cwd);
+            char* output = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::SI);
+
+            ::memcpy(output, dosPath.c_str(), dosPath.size() + 1);
+            printf("MsDos::Int21h() function 0x%02x get current path '%s' -> '%s'\n", func, m_cwd, dosPath.c_str());
+
+            break;
+        }
+
         case 0x48: // Allocate memory
         {
             uint16_t newSeg = m_lastBlockSeg + (m_lastBlockSize + 15) / 16;
@@ -402,6 +416,7 @@ void Dos::Int21h(CpuInterface* cpu)
 
             m_lastBlockSeg = newSeg;
             m_lastBlockSize = requested * 16;
+            printf("MsDos::Int21h() allocated lastBlockSeg 0x%04x size %d\n", m_lastBlockSeg, m_lastBlockSize);
 
             cpu->SetReg16(CpuInterface::AX, newSeg);
             cpu->SetFlag(CpuInterface::CF, false);
@@ -412,10 +427,11 @@ void Dos::Int21h(CpuInterface* cpu)
         {
             uint16_t seg = cpu->GetReg16(CpuInterface::ES);
 
-            printf("MsDos::Int21h() releasing %d bytes memory block, segment 0x%04x\n", m_lastBlockSize, m_lastBlockSeg);
+            printf("MsDos::Int21h() releasing %d bytes memory block, segment 0x%04x lastBlockSeg 0x%04x\n", m_lastBlockSize, seg, m_lastBlockSeg);
 
             if (seg != m_lastBlockSeg)
             {
+                printf("MsDos::Int21h() releasing failed\n");
                 cpu->SetFlag(CpuInterface::CF, true);
                 cpu->SetReg16(CpuInterface::AX, 9);
                 break;
@@ -423,7 +439,6 @@ void Dos::Int21h(CpuInterface* cpu)
 
             m_lastBlockSize = 0;
             cpu->SetFlag(CpuInterface::CF, false);
-
             break;
         }
 
@@ -454,6 +469,53 @@ void Dos::Int21h(CpuInterface* cpu)
 
             m_lastBlockSize = newSize;
             cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x4b:
+        {
+            uint8_t cmd = cpu->GetReg8(CpuInterface::AL);
+
+            uint16_t* paramBlk =
+                reinterpret_cast<uint16_t *>(reinterpret_cast<char *>(m_memory) +
+                cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::BX));
+
+            char *fileName = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
+
+            printf("MsDos::Int21h() function 0x%02x loading file '%s' -> '%s'\n", func, fileName, FixPath(fileName).c_str());
+            printf("MsDos::Int21h() function 0x%02x last block seg %04x size %d (%06x)\n", func, m_lastBlockSeg, m_lastBlockSize, m_lastBlockSize);
+            printf("MsDos::Int21h() function 0x%02x AX %04x DS:DX %04x:%04x ES:BX %04x:%04x\n",
+                   func, cpu->GetReg16(CpuInterface::AX),
+                   cpu->GetReg16(CpuInterface::DS), cpu->GetReg16(CpuInterface::DX),
+                   cpu->GetReg16(CpuInterface::ES), cpu->GetReg16(CpuInterface::BX));
+
+            for(int n = 0; n < 7; n++)
+            {
+                printf("MsDos::Int21h() function 0x%02x off %02x val %04x\n", func, n * 2, paramBlk[n]);
+            }
+
+            if (cmd == 0x03)
+            {
+                ImageInfo imageInfo = LoadImage(*paramBlk, FixPath(fileName).c_str());
+
+                if (imageInfo.status == -1)
+                {
+                    printf("MsDos::Int21h() function 0x%02x cmd %d loading failed\n", func, cmd);
+                    cpu->SetReg16(CpuInterface::AX, 2);     // error code: File not found
+                    cpu->SetFlag(CpuInterface::CF, true);
+                    break;
+                }
+
+                m_lastBlockSeg = *paramBlk;
+                m_lastBlockSize = imageInfo.imageSize;
+
+                cpu->SetFlag(CpuInterface::CF, false);
+            }
+            else
+            {
+                printf("MsDos::Int21h() function 0x%02x cmd %d not implemented yet!\n", func, cmd);
+            }
+
             break;
         }
 
@@ -560,83 +622,11 @@ void Dos::SetCDrive(std::string const& cDrive)
 
 Dos::ImageInfo Dos::LoadExeFromFile(uint16_t startSegment, const char *filename)
 {
-    ImageInfo result;
-
-    // Open file
-    int fd = ::open(filename, O_RDONLY | O_BINARY);
-
-    if (fd < 0)
-    {
-        printf("Dos::LoadExeFromFile() error: could not open file '%s'\n", filename);
-        result.status = -1;
-        return result;
-    }
-
-    // Read header
-    ExeHeader header;
-
-    ::read(fd, &header, sizeof(ExeHeader));
-
-    printf("Dos::LoadExeFromFile() opened '%s'...\n", filename);
-    printf("Header:\n");
-    printf("    magic            '%c%c'\n",        header.magic & 0xff, header.magic >> 8);
-    printf("    partialPageSize  %d\n",            header.partialPageSize);
-    printf("    pageCnt          %d (%d bytes)\n", header.pageCnt, header.pageCnt * 512);
-    printf("    relocCnt         %d\n",            header.relocCnt);
-    printf("    headerSize       %d (%d bytes)\n", header.headerSize, header.headerSize * 16);
-    printf("    minAlloc         %d (%d bytes)\n", header.minAlloc, header.minAlloc * 16);
-    printf("    maxAlloc         %d (%d bytes)\n", header.maxAlloc, header.maxAlloc * 16);
-    printf("    initSS           0x%04x\n",        header.initSS);
-    printf("    initSP           0x%04x\n",        header.initSP);
-    printf("    checksum         0x%04x\n",        header.checksum);
-    printf("    initIP           0x%04x\n",        header.initIP);
-    printf("    initCS           0x%04x\n",        header.initCS);
-    printf("    relocOffset      0x%04x\n",        header.relocOffset);
-    printf("    overlayNo        %d\n",            header.overlayNo);
-
-    // Load image into memory
-    int imageSize   = header.pageCnt * 512 - header.headerSize * 16;
-    int minAlloc    = header.minAlloc * 16;
-    int loadAddress = startSegment * 16;
-
-    if (loadAddress + imageSize + minAlloc > 640 * 1024)
-    {
-        result.status = -1;
-        return result;
-    }
-
-    ::lseek(fd, header.headerSize * 16, SEEK_SET);
-    ::read(fd, m_memory + loadAddress, imageSize);
-
-    printf("Dos::LoadExeFromFile() loaded %d bytes of program image\n", imageSize);
-
-    // Handle relocations
-    RelocEntry* relocTbl = new RelocEntry[header.relocCnt];
-
-    ::lseek(fd, header.relocOffset, SEEK_SET);
-    ::read(fd, reinterpret_cast<void *>(relocTbl), header.relocCnt * sizeof(RelocEntry));
-
-    for(uint32_t n = 0; n < header.relocCnt; n++)
-    {
-        RelocEntry& reloc = relocTbl[n];
-        uint16_t*   fixup = reinterpret_cast<uint16_t *>(m_memory + loadAddress + reloc.seg * 16 + reloc.off);
-
-        *fixup += startSegment;
-    }
-
-    // Close file
-    ::close(fd);
-
-    // Return entry point
-    result.imageSize = imageSize;
-    result.initCS = header.initCS + startSegment;
-    result.initIP = header.initIP;
-    result.initSS = header.initSS + startSegment;
-    result.initSP = header.initSP;
+    ImageInfo result = LoadImage(startSegment, filename);
 
     // Set initial values for memory allocator;
     m_lastBlockSeg = startSegment - 0x10;
-    m_lastBlockSize = imageSize + 0x100;
+    m_lastBlockSize = result.imageSize + 0x100;
 
     return result;
 }
@@ -668,4 +658,114 @@ std::string Dos::FixPath(std::string const& dosPath)
     {
         return m_cwd + '/' + path;
     }
+}
+
+std::string Dos::DosPath(std::string const& path)
+{
+    std::size_t pos = 0;
+    std::string result;
+
+    if (path[0] == '.')
+        pos++;
+
+    if (path[pos] == '/')
+        pos++;
+
+    for(std::size_t n = pos; n < path.size(); n++)
+    {
+        char ch = path[n];
+
+        if (ch == '/')
+        {
+            ch = '\\';
+        }
+
+        result += ch;
+    }
+
+    return result;
+}
+
+Dos::ImageInfo Dos::LoadImage(uint16_t startSegment, const char *filename)
+{
+    ImageInfo result;
+
+    // Open file
+    int fd = ::open(filename, O_RDONLY | O_BINARY);
+
+    if (fd < 0)
+    {
+        printf("Dos::LoadImage() error: could not open file '%s'\n", filename);
+        result.status = -1;
+        return result;
+    }
+
+    // Read header
+    ExeHeader header;
+
+    ::read(fd, &header, sizeof(ExeHeader));
+
+    printf("Dos::LoadImage() opened '%s'...\n", filename);
+    printf("Header:\n");
+    printf("    magic            '%c%c'\n",        header.magic & 0xff, header.magic >> 8);
+    printf("    partialPageSize  %d\n",            header.partialPageSize);
+    printf("    pageCnt          %d (%d bytes)\n", header.pageCnt, header.pageCnt * 512);
+    printf("    relocCnt         %d\n",            header.relocCnt);
+    printf("    headerSize       %d (%d bytes)\n", header.headerSize, header.headerSize * 16);
+    printf("    minAlloc         %d (%d bytes)\n", header.minAlloc, header.minAlloc * 16);
+    printf("    maxAlloc         %d (%d bytes)\n", header.maxAlloc, header.maxAlloc * 16);
+    printf("    initSS           0x%04x\n",        header.initSS);
+    printf("    initSP           0x%04x\n",        header.initSP);
+    printf("    checksum         0x%04x\n",        header.checksum);
+    printf("    initIP           0x%04x\n",        header.initIP);
+    printf("    initCS           0x%04x\n",        header.initCS);
+    printf("    relocOffset      0x%04x\n",        header.relocOffset);
+    printf("    overlayNo        %d\n",            header.overlayNo);
+
+    // Load image into memory
+    int imageSize   = header.pageCnt * 512 - header.headerSize * 16;
+    int minAlloc    = header.minAlloc * 16;
+    int loadAddress = startSegment * 16;
+
+    printf("Dos::LoadImage() startseg %04x, loadAddress %08x, imageSize %08x, minalloc %08x, total %xd\n",
+           startSegment, loadAddress, imageSize, minAlloc,
+           loadAddress + imageSize + minAlloc);
+
+    if (loadAddress + imageSize + minAlloc > 640 * 1024)
+    {
+        result.status = -1;
+        return result;
+    }
+
+    ::lseek(fd, header.headerSize * 16, SEEK_SET);
+    ::read(fd, m_memory + loadAddress, imageSize);
+
+    printf("Dos::LoadImage() loaded %d bytes of program image\n", imageSize);
+
+    // Handle relocations
+    RelocEntry* relocTbl = new RelocEntry[header.relocCnt];
+
+    ::lseek(fd, header.relocOffset, SEEK_SET);
+    ::read(fd, reinterpret_cast<void *>(relocTbl), header.relocCnt * sizeof(RelocEntry));
+
+    for(uint32_t n = 0; n < header.relocCnt; n++)
+    {
+        RelocEntry& reloc = relocTbl[n];
+        uint16_t*   fixup = reinterpret_cast<uint16_t *>(m_memory + loadAddress + reloc.seg * 16 + reloc.off);
+
+        *fixup += startSegment;
+    }
+
+    // Close file
+    ::close(fd);
+
+    // Return entry point
+    result.status = 0;
+    result.imageSize = imageSize + minAlloc;
+    result.initCS = header.initCS + startSegment;
+    result.initIP = header.initIP;
+    result.initSS = header.initSS + startSegment;
+    result.initSP = header.initSP;
+
+    return result;
 }

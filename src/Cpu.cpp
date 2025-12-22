@@ -199,6 +199,11 @@ void Cpu::Interrupt(int num)
 
     m_register[Register::CS] = Load16(num * 4 + 2);
     m_register[Register::IP] = Load16(num * 4);
+
+    if (m_register[Register::CS] == 0 && m_register[Register::IP] == 0)
+    {
+        m_state |= State::InvalidOp;
+    }
 }
 
 bool Cpu::HardwareInterrupt(int num)
@@ -2394,7 +2399,7 @@ void Cpu::ExecuteInstruction()
     //
     // if (disasm || opcode == 0xf3)
     // {
-        // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x  ",
+        // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x ",
         //     m_register[Register::AX],
         //     m_register[Register::BX],
         //     m_register[Register::CX],
@@ -3178,8 +3183,23 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 2;
             break;
 
-//         case 0x6b: // imul r16, r/m16, imm8
-//             break;
+        case 0x6b: // imul r16, r/m16, imm8
+            {
+                int32_t result = static_cast<short>(ModRmLoad16(ip)) * static_cast<char>(*(ip + s_modRmInstLen[*ip] -1));
+
+                if (static_cast<short>(result) == result)
+                {
+                    SetOF_CF(false, false);
+                }
+                else
+                {
+                    SetOF_CF(true, true);
+                }
+
+                *Reg16(*ip) = result & 0xffff;
+                m_register[Register::IP] += s_modRmInstLen[*ip] + 1;
+                break;
+            }
 
 //         case 0x6c: // insb
 //             break;
@@ -3187,8 +3207,11 @@ void Cpu::ExecuteInstruction()
 //         case 0x6d: // insw
 //             break;
 
-//         case 0x6e: // outsb
-//             break;
+        case 0x6e: // outsb
+            PortWrite(m_register[Register::DX], 1, Load8(m_segmentBase + m_register[Register::SI]));
+            m_register[Register::SI] += (m_register[Register::FLAG] & Flag::DF_mask) ? -1 : 1;
+            m_register[Register::IP] += 1;
+            break;
 
 //         case 0x6f: // outsw
 //             break;
@@ -3679,8 +3702,30 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += s_modRmInstLen[*ip] + 2;
             break;
 
-//         case 0xc8: // enter
-//             break;
+        case 0xc8: // enter
+            {
+                uint16_t allocSize = Imm16(ip);
+                uint16_t nesting = *(ip + 2) & 0x1f;
+
+                Push16(m_register[Register::BP]);
+                uint16_t frameTemp = m_register[Register::SP];
+
+                if (nesting > 0)
+                {
+                    for(int n = 1; n < nesting; n++)
+                    {
+                        m_register[Register::BP] -= 2;
+                        Push16(m_register[Register::BP]);
+                    }
+
+                    Push16(frameTemp);
+                }
+
+                m_register[Register::BP] = frameTemp;
+                m_register[Register::SP] -= allocSize;
+                m_register[Register::IP] += 4;
+                break;
+            }
 
         case 0xc9: // leave
             m_register[Register::SP] = m_register[Register::BP];
@@ -3699,8 +3744,27 @@ void Cpu::ExecuteInstruction()
             m_register[Register::CS] = Pop16();
             break;
 
-//         case 0xcc: // int 3
-//             break;
+        case 0xcc: // int 3
+            {
+                RecalcFlags();
+                Push16(m_register[Register::FLAG]);
+                Push16(m_register[Register::CS]);
+                Push16(m_register[Register::IP]);
+
+                SetAF(0);
+                m_register[Register::FLAG] &= Flag::TF_mask;
+                m_register[Register::FLAG] &= Flag::IF_mask;
+
+                m_register[Register::CS] = Load16(3 * 4 + 2);
+                m_register[Register::IP] = Load16(3 * 4);
+
+                if (m_register[Register::CS] == 0 && m_register[Register::IP] == 0)
+                {
+                    printf("Empty int vector\n");
+                    m_state |= State::InvalidOp;
+                }
+                break;
+            }
 
         case 0xcd: // int imm8
             m_register[Register::IP] += 2;

@@ -33,17 +33,10 @@ int main(int argc, char **argv)
     Keyboard*     keyboard   = new Keyboard;
     SDLInterface* sdl        = new SDLInterface(vga, memoryView);
 
-    // uint16_t envSeg   = 0x0ff0;
-    // uint16_t pspSeg   = 0x1000;
-    // uint16_t imageSeg = 0x1010;
     uint16_t envSeg   = 0x07ca;
     uint16_t pspSeg   = 0x0814;
     uint16_t imageSeg = 0x0824;
     uint16_t nextSeg  = 0x9fff;
-
-    // dos->BuildEnv(envSeg, "C:\\WOLF\\TBLTEST2.EXE", { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\;C:\\SYSTEM;C:\\BIN;C:\\DOS;C:\\4DOS;C:\\DEBUG;C:\\TEXTUTIL", "PROMPT=$P$G", "BLASTAR=A220 I7 D1 H5 P330 T6" }); // { "PATH=C:\\", "PROMPT=$P$G" }
-    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/FPTEST.EXE");
-    // auto imageInfo = dos->LoadExeFromFile(imageSeg, "wolf/TBLTEST2.EXE");
 
     std::string game = (argc > 1) ? argv[1] : "wolf";
     std::string gameCwd, gameImg, gameExe;
@@ -206,6 +199,7 @@ int main(int argc, char **argv)
                 case 0x3da:
                     return vga->PortRead(port);
 
+                case 0x61:
                 case 0x201: // Joystick, ignore
                 case 0x388: // Adlib Address / Status, ignore
                 case 0x389: // Adlib Data port, ignore
@@ -258,6 +252,10 @@ int main(int argc, char **argv)
                 case 0x3c8:
                 case 0x3c9:
                     vga->PortWrite(port, value);
+                    break;
+
+                case 0x61:
+                case 0x201:
                     break;
 
                 default:

@@ -46,6 +46,7 @@ public:
     std::function<void     (uint16_t port, int size, uint32_t value)> onPortWrite;
     std::function<uint8_t  (uint32_t addr)>                           onVgaMemRead;
     std::function<void     (uint32_t addr, uint8_t value)>            onVgaMemWrite;
+    std::function<void     (uint32_t cycles)>                         onAdvanceTime;
 };
 
 #endif /* X86EMU_CPU_INTERFACE */

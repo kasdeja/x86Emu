@@ -37,8 +37,17 @@ private:
     uint8_t m_cursorX;
     uint8_t m_cursorY;
 
-    std::queue<uint8_t> m_keys;
-    bool    m_lastKeyExtended;
+    bool m_extendedKey;
+    bool m_shiftPressed;
+    bool m_ctrlPressed;
+    bool m_altPressed;
+    bool m_capsPressed;
+    uint16_t m_scanCode;
+
+    std::queue<uint8_t>  m_keys;
+    std::queue<uint16_t> m_processedKeys;
+
+    void ProcessKeys();
 };
 
 #endif /* X86EMU_BIOS */

@@ -93,7 +93,7 @@ struct PspHeader
     char     cmdTail[127];
 } __attribute__((packed));
 
-const uint16_t s_keyMapping[100][5] = {
+const uint16_t s_dosKeyMapping[100][5] = {
 //    scan    ascii   ascii   ascii   asii
 //    code            shif    ctrl    alt
     { 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
@@ -946,13 +946,13 @@ void Dos::ProcessKeys()
         else if (scanCode == 0x2a || scanCode == 0x36)
         {
             m_shiftPressed = !released;
-            printf("Dos::ProcessKeys() ctrl pressed = %d\n", m_shiftPressed);
+            printf("Dos::ProcessKeys() shift pressed = %d\n", m_shiftPressed);
             continue;
         }
         else if (scanCode == 0x38 || scanCode == 0xe038)
         {
             m_altPressed = !released;
-            printf("Dos::ProcessKeys() ctrl pressed = %d\n", m_altPressed);
+            printf("Dos::ProcessKeys() alt pressed = %d\n", m_altPressed);
             continue;
         }
         else if (scanCode == 0x3a)
@@ -970,7 +970,7 @@ void Dos::ProcessKeys()
 
         for(idx = 0; idx < 100; idx++)
         {
-            if (s_keyMapping[idx][0] == scanCode)
+            if (s_dosKeyMapping[idx][0] == scanCode)
             {
                 break;
             }
@@ -985,19 +985,19 @@ void Dos::ProcessKeys()
 
         if (m_capsPressed ^ m_shiftPressed)
         {
-            retCode = s_keyMapping[idx][2];
+            retCode = s_dosKeyMapping[idx][2];
         }
         else if (m_ctrlPressed)
         {
-            retCode = s_keyMapping[idx][3];
+            retCode = s_dosKeyMapping[idx][3];
         }
         else if (m_altPressed)
         {
-            retCode = s_keyMapping[idx][4];
+            retCode = s_dosKeyMapping[idx][4];
         }
         else
         {
-            retCode = s_keyMapping[idx][1];
+            retCode = s_dosKeyMapping[idx][1];
         }
 
         printf("Dos::ProcessKeys() retcode %04x\n", retCode);

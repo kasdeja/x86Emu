@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     // Initialize emulator
     Memory*       memory     = new Memory(4096);
     Vga*          vga        = new Vga(*memory);
-    MemoryView*   memoryView = nullptr; //new MemoryView(memory, vga);
+    MemoryView*   memoryView = new MemoryView(memory, vga);
     Bios*         bios       = new Bios(*memory, *vga);
     Dos*          dos        = new Dos(*memory, *bios);
     CpuInterface* cpu        = new Cpu(*memory);

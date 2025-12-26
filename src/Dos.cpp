@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include "CpuInterface.h"
 #include "Memory.h"
+#include "Bios.h"
 #include "Dos.h"
 
 #ifndef _WIN32
@@ -92,9 +93,115 @@ struct PspHeader
     char     cmdTail[127];
 } __attribute__((packed));
 
+const uint16_t s_keyMapping[100][5] = {
+//    scan    ascii   ascii   ascii   asii
+//    code            shif    ctrl    alt
+    { 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x0001, 0x001B, 0x001B, 0x001B, 0xAA01 },
+    { 0x0002, 0x0031, 0x0021, 0xFFFF, 0xAA78 },
+    { 0x0003, 0x0032, 0x0040, 0xAA03, 0xAA79 },
+    { 0x0004, 0x0033, 0x0023, 0xFFFF, 0xAA7A },
+    { 0x0005, 0x0034, 0x0024, 0xFFFF, 0xAA7B },
+    { 0x0006, 0x0035, 0x0025, 0xFFFF, 0xAA7C },
+    { 0x0007, 0x0036, 0x005E, 0x001E, 0xAA7D },
+    { 0x0008, 0x0037, 0x0026, 0xFFFF, 0xAA7E },
+    { 0x0009, 0x0038, 0x002A, 0xFFFF, 0xAA7F },
+    { 0x000A, 0x0039, 0x0028, 0xFFFF, 0xAA80 },
+    { 0x000B, 0x0030, 0x0029, 0xFFFF, 0xAA81 },
+    { 0x000C, 0x002D, 0x005F, 0x001F, 0xAA82 },
+    { 0x000D, 0x003D, 0x002B, 0xFFFF, 0xAA83 },
+    { 0x000E, 0x0008, 0x0008, 0x007F, 0xAA0E },
+    { 0x000F, 0x0009, 0x000F, 0xAA94, 0xAAA5 },
+    { 0x0010, 0x0071, 0x0051, 0x0011, 0xAA10 },
+    { 0x0011, 0x0077, 0x0057, 0x0017, 0xAA11 },
+    { 0x0012, 0x0065, 0x0045, 0x0005, 0xAA12 },
+    { 0x0013, 0x0072, 0x0052, 0x0012, 0xAA13 },
+    { 0x0014, 0x0074, 0x0054, 0x0014, 0xAA14 },
+    { 0x0015, 0x0079, 0x0059, 0x0019, 0xAA15 },
+    { 0x0016, 0x0075, 0x0055, 0x0015, 0xAA16 },
+    { 0x0017, 0x0069, 0x0049, 0x0009, 0xAA17 },
+    { 0x0018, 0x006F, 0x004F, 0x000F, 0xAA18 },
+    { 0x0019, 0x0070, 0x0050, 0x0010, 0xAA19 },
+    { 0x001A, 0x005B, 0x007B, 0x001B, 0xAA1A },
+    { 0x001B, 0x005D, 0x007D, 0x001D, 0xAA1B },
+    { 0x001C, 0x000D, 0x000D, 0x000A, 0xAA1C },
+    { 0x001D, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x001E, 0x0061, 0x0041, 0x0001, 0xAA1E },
+    { 0x001F, 0x0073, 0x0053, 0x0013, 0xAA1F },
+    { 0x0020, 0x0064, 0x0044, 0x0004, 0xAA20 },
+    { 0x0021, 0x0066, 0x0046, 0x0006, 0xAA21 },
+    { 0x0022, 0x0067, 0x0047, 0x0007, 0xAA22 },
+    { 0x0023, 0x0068, 0x0048, 0x0008, 0xAA23 },
+    { 0x0024, 0x006A, 0x004A, 0x000A, 0xAA24 },
+    { 0x0025, 0x006B, 0x004B, 0x000B, 0xAA25 },
+    { 0x0026, 0x006C, 0x004C, 0x000C, 0xAA26 },
+    { 0x0027, 0x003B, 0x003A, 0xFFFF, 0xAA27 },
+    { 0x0028, 0x0027, 0x0022, 0xFFFF, 0xAA28 },
+    { 0x0029, 0x0060, 0x007E, 0xFFFF, 0xAA29 },
+    { 0x002A, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x002B, 0x005C, 0x007C, 0x001C, 0xFFFF },
+    { 0x002C, 0x007A, 0x005A, 0x001A, 0xAA2C },
+    { 0x002D, 0x0078, 0x0058, 0x0018, 0xAA2D },
+    { 0x002E, 0x0063, 0x0043, 0x0003, 0xAA2E },
+    { 0x002F, 0x0076, 0x0056, 0x0016, 0xAA2F },
+    { 0x0030, 0x0062, 0x0042, 0x0002, 0xAA30 },
+    { 0x0031, 0x006E, 0x004E, 0x000E, 0xAA31 },
+    { 0x0032, 0x006D, 0x004D, 0x000D, 0xAA32 },
+    { 0x0033, 0x002C, 0x003C, 0xFFFF, 0xAA33 },
+    { 0x0034, 0x002E, 0x003E, 0xFFFF, 0xAA34 },
+    { 0x0035, 0x002F, 0x003F, 0xFFFF, 0xAA35 },
+    { 0x0036, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x0037, 0x002A, 0xFFFF, 0xFFFF, 0x0072 },
+    { 0x0038, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x0039, 0x0020, 0x0020, 0x0020, 0x0020 },
+    { 0x003A, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x003B, 0xAA3B, 0x0054, 0x005E, 0x0068 },
+    { 0x003C, 0xAA3C, 0x0055, 0x005F, 0x0069 },
+    { 0x003D, 0xAA3D, 0x0056, 0x0060, 0x006A },
+    { 0x003E, 0xAA3E, 0x0057, 0x0061, 0x006B },
+    { 0x003F, 0xAA3F, 0x0058, 0x0062, 0x006C },
+    { 0x0040, 0xAA40, 0x0059, 0x0063, 0x006D },
+    { 0x0041, 0xAA41, 0x005A, 0x0064, 0x006E },
+    { 0x0042, 0xAA42, 0x005B, 0x0065, 0x006F },
+    { 0x0043, 0xAA43, 0x005C, 0x0066, 0x0070 },
+    { 0x0044, 0xAA44, 0x005D, 0x0067, 0x0071 },
+    { 0x0045, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x0046, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0x0047, 0xAA47, 0x0037, 0xAA77, 0xFFFF },
+    { 0x0048, 0xAA48, 0x0038, 0xAA8D, 0xFFFF },
+    { 0x0049, 0xAA49, 0x0039, 0xAA84, 0xFFFF },
+    { 0x004A, 0xFFFF, 0x002D, 0xFFFF, 0xFFFF },
+    { 0x004B, 0xAA4B, 0x0034, 0xAA73, 0xFFFF },
+    { 0x004C, 0xFFFF, 0x0035, 0xFFFF, 0xFFFF },
+    { 0x004D, 0xAA4D, 0x0036, 0xAA74, 0xFFFF },
+    { 0x004E, 0xFFFF, 0x002B, 0xFFFF, 0xFFFF },
+    { 0x004F, 0xAA4F, 0x0031, 0xAA75, 0xFFFF },
+    { 0x0050, 0xAA50, 0x0032, 0xAA91, 0xFFFF },
+    { 0x0051, 0xAA51, 0x0033, 0xAA76, 0xFFFF },
+    { 0xE052, 0xAA52, 0x0030, 0xAA92, 0xFFFF },
+    { 0xE053, 0xAA53, 0x002E, 0xAA93, 0xFFFF },
+    { 0xE01C, 0x000D, 0x000D, 0x000A, 0xAAA6 },
+    { 0xE01D, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0xE035, 0x002F, 0x003F, 0xAA95, 0xAAA4 },
+    { 0xE038, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF },
+    { 0xE047, 0xE047, 0xE047, 0xE077, 0xAA97 },
+    { 0xE048, 0xE048, 0xE048, 0xE08D, 0xAA98 },
+    { 0xE049, 0xE049, 0xE049, 0xE084, 0xAA99 },
+    { 0xE04B, 0xE04B, 0xE04B, 0xE073, 0xAA9B },
+    { 0xE04D, 0xE04D, 0xE04D, 0xE074, 0xAA9D },
+    { 0xE04F, 0xE04F, 0xE04F, 0xE075, 0xAA9F },
+    { 0xE050, 0xE050, 0xE050, 0xE091, 0xAAA0 },
+    { 0xE051, 0xE051, 0xE051, 0xE076, 0xAAA1 },
+    { 0xE057, 0xE085, 0xE087, 0xE089, 0xE08B },
+    { 0xE058, 0xE086, 0xE088, 0xE08A, 0xE08C },
+    { 0xE052, 0xE052, 0xE052, 0xE092, 0xAAA2 },
+    { 0xE053, 0xE053, 0xE053, 0xE093, 0xAAA3 }
+};
+
 // constructor & destructor
-Dos::Dos(Memory& memory)
+Dos::Dos(Memory& memory, Bios& bios)
     : m_memory(memory.GetMem())
+    , m_bios(bios)
     , m_lastFd(4)
 {
     m_fdMap[1] = 1;
@@ -102,6 +209,13 @@ Dos::Dos(Memory& memory)
 
     m_lastBlockSeg  = 0x0100;
     m_lastBlockSize = 0;
+
+    m_extendedKey = false;
+    m_shiftPressed = false;
+    m_ctrlPressed = false;
+    m_altPressed = false;
+    m_capsPressed = false;
+    m_scanCode = 0;
 }
 
 Dos::~Dos()
@@ -115,24 +229,49 @@ void Dos::Int21h(CpuInterface* cpu)
 
     switch(func)
     {
-        case 0x08: // Character Input without Echo
-            printf("MsDos::Int21h() function 0x08 - character input without echo\n");
-            // FIXME: implement? shall block if nothing available (which may be hard)
-            cpu->SetReg8(CpuInterface::AL, 32); // space
+        case 0x07: // Character Input unfiltered without echo
+        case 0x08: // Character Input filtered without Echo (difference is minimal)
+        {
+            ProcessKeys();
+
+            if (!m_keys.empty())
+            {
+                uint8_t key = m_keys.front();
+                m_keys.pop();
+
+                printf("MsDos::Int21h() function 0x%02x has key %02x\n", func, key);
+                cpu->SetReg8(CpuInterface::AL, key);
+            }
+            else
+            {
+                // Replay Int 21h instruction
+                // printf("MsDos::Int21h() function 0x%02x no key - replay\n", func);
+                cpu->SetReg16(CpuInterface::IP, cpu->GetReg16(CpuInterface::IP) - 2);
+            }
             break;
+        }
 
         case 0x0b: // Check Input Status
-            printf("MsDos::Int21h() function 0x0b - check input status\n");
-            // FIXME: implement?
-            // 0x00 - no character, 0xff - at least one
-            cpu->SetReg8(CpuInterface::AL, 0);
+        {
+            ProcessKeys();
+            if (!m_keys.empty())
+            {
+                printf("MsDos::Int21h() function 0x0b check input status - has key\n");
+                cpu->SetReg8(CpuInterface::AL, 0xff);
+            }
+            else
+            {
+                printf("MsDos::Int21h() function 0x0b check input status - no key\n");
+                cpu->SetReg8(CpuInterface::AL, 0);
+            }
             break;
+        }
 
         case 0x19: // Get current default drive
             cpu->SetReg8(CpuInterface::AL, 2); // C:
             break;
 
-        case 0x1a: // Get Disk Transfer Area address
+        case 0x1a: // Set Disk Transfer Area address
         {
             m_dtaSeg = cpu->GetReg16(CpuInterface::DS);
             m_dtaOff = cpu->GetReg16(CpuInterface::DX);
@@ -153,7 +292,7 @@ void Dos::Int21h(CpuInterface* cpu)
             *reinterpret_cast<uint16_t *>(m_memory + intr * 4 + 2) = cpu->GetReg16(CpuInterface::DS);
             *reinterpret_cast<uint16_t *>(m_memory + intr * 4)     = cpu->GetReg16(CpuInterface::DX);
 
-            printf("MsDos::Int21h() function 0x%02x - setting interrupt vector %02xh to %04x:%04x\n",
+            printf("MsDos::Int21h() function 0x%02x setting interrupt vector %02xh to %04x:%04x\n",
                 func, intr, cpu->GetReg16(CpuInterface::DS), cpu->GetReg16(CpuInterface::DX));
             break;
         }
@@ -181,7 +320,7 @@ void Dos::Int21h(CpuInterface* cpu)
         case 0x3b: // Set Current Directory
         {
             char*  path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
-            printf("MsDos::Int21h() function 0x%02x path '%s' -> '%s' not implemented!\n", func, path, FixPath(path).c_str());
+            printf("MsDos::Int21h() function 0x%02x set current directory path '%s' -> '%s' not implemented!\n", func, path, FixPath(path).c_str());
             break;
         }
 
@@ -190,7 +329,7 @@ void Dos::Int21h(CpuInterface* cpu)
             char*   path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
             uint8_t accessMode = cpu->GetReg8(CpuInterface::AL);
 
-            printf("MsDos::Int21h() function 0x%02x path '%s' -> '%s' accessMode %d\n", func, path, FixPath(path).c_str(), accessMode);
+            printf("MsDos::Int21h() function 0x%02x open file path '%s' -> '%s' accessMode %d\n", func, path, FixPath(path).c_str(), accessMode);
 
             int fd = ::open(FixPath(path).c_str(), O_RDONLY | O_BINARY);
 
@@ -522,7 +661,6 @@ void Dos::Int21h(CpuInterface* cpu)
         case 0x4e: // Find first matching file
         {
             char *path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
-
             printf("MsDos::Int21h() function 0x%02x path '%s'\n", func, path);
 
             if (!::strcmp(path, "*.WL6"))
@@ -768,4 +906,114 @@ Dos::ImageInfo Dos::LoadImage(uint16_t startSegment, const char *filename)
     result.initSP = header.initSP;
 
     return result;
+}
+
+void Dos::ProcessKeys()
+{
+    uint8_t  key;
+    uint16_t retCode;
+    int      idx;
+
+    for(;;)
+    {
+        if (m_bios.HasKey())
+        {
+            key = m_bios.GetKey();
+            printf("Dos::ProcessKeys() scancode %2x\n", key);
+            m_scanCode = (m_scanCode << 8) | key;
+
+            if (key == 0xe0)
+            {
+                continue;
+            }
+        }
+        else
+        {
+            break;
+        }
+
+        bool     released = (m_scanCode & 0x80) != 0;
+        uint16_t scanCode = m_scanCode & 0xff7f;
+
+        m_scanCode = 0;
+
+        if (scanCode == 0x1d || scanCode == 0xe01d)
+        {
+            m_ctrlPressed = !released;
+            printf("Dos::ProcessKeys() ctrl pressed = %d\n", m_ctrlPressed);
+            continue;
+        }
+        else if (scanCode == 0x2a || scanCode == 0x36)
+        {
+            m_shiftPressed = !released;
+            printf("Dos::ProcessKeys() ctrl pressed = %d\n", m_shiftPressed);
+            continue;
+        }
+        else if (scanCode == 0x38 || scanCode == 0xe038)
+        {
+            m_altPressed = !released;
+            printf("Dos::ProcessKeys() ctrl pressed = %d\n", m_altPressed);
+            continue;
+        }
+        else if (scanCode == 0x3a)
+        {
+            m_capsPressed = !released;
+            printf("Dos::ProcessKeys() caps pressed = %d\n", m_capsPressed);
+            continue;
+        }
+
+        if (released)
+        {
+            printf("Dos::ProcessKeys() key released\n");
+            continue;
+        }
+
+        for(idx = 0; idx < 100; idx++)
+        {
+            if (s_keyMapping[idx][0] == scanCode)
+            {
+                break;
+            }
+        }
+
+        printf("Dos::ProcessKeys() scancode %04x idx %d\n", scanCode, idx);
+
+        if (idx >= 100)
+        {
+            continue;
+        }
+
+        if (m_capsPressed ^ m_shiftPressed)
+        {
+            retCode = s_keyMapping[idx][2];
+        }
+        else if (m_ctrlPressed)
+        {
+            retCode = s_keyMapping[idx][3];
+        }
+        else if (m_altPressed)
+        {
+            retCode = s_keyMapping[idx][4];
+        }
+        else
+        {
+            retCode = s_keyMapping[idx][1];
+        }
+
+        printf("Dos::ProcessKeys() retcode %04x\n", retCode);
+
+        if (retCode == 0xffff)
+        {
+            continue;
+        }
+        else if ((retCode >> 8) != 0)
+        {
+            retCode >>= 8;
+            m_keys.push(retCode == 0xaa ? 0 : retCode);
+        }
+        else
+        {
+            m_keys.push(retCode);
+        }
+    }
 }

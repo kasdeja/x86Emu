@@ -128,12 +128,7 @@ private:
     int         m_result;
     int         m_auxbits;
 
-    // uint8_t*    m_vgaMemory;
-    // bool        m_vgaChain4;
-    // uint8_t     m_vgaPlaneMask[4];
-
     std::size_t m_instructionCnt;
-
     Memory&     m_rMemory;
 
     uint32_t  PortRead(uint16_t port, int size);

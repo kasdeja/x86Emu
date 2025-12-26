@@ -79,6 +79,8 @@ Bios::Bios(Memory& memory, Vga& vga)
 
     m_cursorX = 0;
     m_cursorY = 0;
+
+    m_lastKeyExtended = false;
 }
 
 Bios::~Bios()
@@ -277,9 +279,20 @@ void Bios::Int16h(CpuInterface* cpu)
     {
         case 0x00: // Read key press
         {
+            if (m_lastKeyExtended && HasKey())
+            {
+                m_lastKeyExtended = false;
+                GetKey();
+            }
+
             if (HasKey())
             {
                 uint16_t key = GetKey();
+
+                if (key == 0xe0)
+                {
+                    m_lastKeyExtended = true;
+                }
 
                 printf("Bios::Int16h() function 0x%02x read key 0x%2x\n", func, key);
                 cpu->SetReg16(CpuInterface::AX, (key << 8) | KeyToChar(key));

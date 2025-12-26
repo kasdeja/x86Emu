@@ -38,6 +38,7 @@ private:
     uint8_t m_cursorY;
 
     std::queue<uint8_t> m_keys;
+    bool    m_lastKeyExtended;
 };
 
 #endif /* X86EMU_BIOS */

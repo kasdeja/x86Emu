@@ -3,12 +3,14 @@
 
 #include <inttypes.h>
 #include <string>
+#include <queue>
 #include <vector>
 #include <unordered_map>
 
 // forward declarations
 class CpuInterface;
 class Memory;
+class Bios;
 
 class Dos
 {
@@ -24,7 +26,7 @@ public:
     };
 
     // constructor & destructor
-    Dos(Memory& memory);
+    Dos(Memory& memory, Bios& bios);
     ~Dos();
 
     // public methods
@@ -40,6 +42,7 @@ public:
 
 private:
     uint8_t* m_memory;
+    Bios&    m_bios;
 
     uint16_t m_pspSeg;
     uint16_t m_dtaSeg;
@@ -53,9 +56,19 @@ private:
     std::string m_cDrive;
     std::unordered_map<int, int> m_fdMap;
 
+    bool m_extendedKey;
+    bool m_shiftPressed;
+    bool m_ctrlPressed;
+    bool m_altPressed;
+    bool m_capsPressed;
+    uint16_t m_scanCode;
+
+    std::queue<uint8_t> m_keys;
+
     std::string FixPath(std::string const& dosPath);
     std::string DosPath(std::string const& path);
-    ImageInfo LoadImage(uint16_t startSegment, const char *filename);
+    ImageInfo   LoadImage(uint16_t startSegment, const char *filename);
+    void        ProcessKeys();
 };
 
 #endif /* X86EMU_DOS */

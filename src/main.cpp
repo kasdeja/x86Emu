@@ -24,9 +24,9 @@ int main(int argc, char **argv)
     // Initialize emulator
     Memory*       memory     = new Memory(4096);
     Vga*          vga        = new Vga(*memory);
-    MemoryView*   memoryView = new MemoryView(memory, vga);
+    MemoryView*   memoryView = nullptr; //new MemoryView(memory, vga);
     Bios*         bios       = new Bios(*memory, *vga);
-    Dos*          dos        = new Dos(*memory);
+    Dos*          dos        = new Dos(*memory, *bios);
     CpuInterface* cpu        = new Cpu(*memory);
     Pic*          pic        = new Pic(*cpu);
     Pit*          pit        = new Pit(*pic);
@@ -123,7 +123,6 @@ int main(int argc, char **argv)
         {
             if (intNo == 0x01) // Single step / int 21 alias??? WTF?
             {
-                printf("INT1 called\n");
                 dos->Int21h(cpu);
             }
             else if (intNo == 0x10)
@@ -188,7 +187,7 @@ int main(int argc, char **argv)
                 case 0x60:
                     {
                         uint8_t key = keyboard->GetKey();
-                        printf("Got key %02x\n", key);
+                        printf("onPortRead() got key %02x\n", key);
                         return key;
                     }
 
@@ -222,7 +221,7 @@ int main(int argc, char **argv)
                     break;
 
                 case 0x68:
-                    printf("Got write on pseudoport 0x68, value %02x\n", value);
+                    printf("onPortWrite() got write on pseudoport 0x68\n");
                     if (keyboard->HasKey())
                     {
                         bios->AddKey(keyboard->GetKey());

@@ -59,12 +59,12 @@ void SDLInterface::MainLoop()
         mvSurface = SDL_GetWindowSurface(mvWindow);
     }
 
-    printf("w %d h %d pitch %d\n", surface->w, surface->h, surface->pitch);
-    printf("bits per pixel %d\n", surface->format->BitsPerPixel);
-    printf("bytes per pixel %d\n", surface->format->BytesPerPixel);
-    printf("rmask 0x%08x\n", surface->format->Rmask);
-    printf("gmask 0x%08x\n", surface->format->Gmask);
-    printf("bmask 0x%08x\n", surface->format->Bmask);
+    printf("SDLInterface::MainLoop() w %d h %d pitch %d\n", surface->w, surface->h, surface->pitch);
+    printf("SDLInterface::MainLoop() bits per pixel %d\n", surface->format->BitsPerPixel);
+    printf("SDLInterface::MainLoop() bytes per pixel %d\n", surface->format->BytesPerPixel);
+    printf("SDLInterface::MainLoop() rmask 0x%08x\n", surface->format->Rmask);
+    printf("SDLInterface::MainLoop() gmask 0x%08x\n", surface->format->Gmask);
+    printf("SDLInterface::MainLoop() bmask 0x%08x\n", surface->format->Bmask);
 
     // Main loop
     SDL_Event event;
@@ -184,11 +184,11 @@ void SDLInterface::MainLoop()
 
                         if (event.key.state == SDL_PRESSED)
                         {
-                            printf("Key press detected, keysym %d\n", event.key.keysym.scancode);
+                            printf("SDLInterface::MainLoop() key press, scancode %d\n", event.key.keysym.scancode);
                         }
                         else
                         {
-                            printf("Key release detected, keysym %d\n", event.key.keysym.scancode);
+                            printf("SDLInterface::MainLoop() key released, scancode %d\n", event.key.keysym.scancode);
                             keycode |= 0x080;
                         }
 
@@ -209,17 +209,17 @@ void SDLInterface::MainLoop()
                     {
                         surface = SDL_GetWindowSurface(window);
 
-                        printf("window resized to %d, %d\n", event.window.data1, event.window.data2);
+                        printf("SDLInterface::MainLoop() window resized to %d, %d\n", event.window.data1, event.window.data2);
                     }
                     else if (event.window.event == SDL_WINDOWEVENT_CLOSE)
                     {
-                        printf("closing app\n");
+                        printf("SDLInterface::MainLoop() closing app\n");
                         m_running = false;
                     }
                     break;
 
                 case SDL_QUIT:
-                    printf("quit\n");
+                    printf("SDLInterface::MainLoop() quit\n");
                     m_running = false;
                     break;
             }

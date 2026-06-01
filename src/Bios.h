@@ -22,6 +22,7 @@ public:
     void Int10h(CpuInterface *cpu);
     void Int11h(CpuInterface *cpu);
     void Int12h(CpuInterface *cpu);
+    void Int13h(CpuInterface *cpu);
     void Int16h(CpuInterface *cpu);
     void Int1Ah(CpuInterface *cpu);
 
@@ -30,7 +31,18 @@ public:
     uint8_t GetKey();
     bool    HasKey();
 
+    bool LoadMBR(int drive);
+    bool OpenDrive(int drive, const std::string &fileName);
+    void CloseDrive(int drive);
+
 private:
+    struct DriveInfo
+    {
+        int fd;
+        int nHeads;
+        int nSectors;
+    };
+
     uint8_t* m_memory;
     Vga&     m_vga;
 
@@ -46,6 +58,9 @@ private:
 
     std::queue<uint8_t>  m_keys;
     std::queue<uint16_t> m_processedKeys;
+
+    static constexpr int m_maxDrives = 4;
+    DriveInfo m_driveInfo[4];
 
     void ProcessKeys();
 };

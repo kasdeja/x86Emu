@@ -1,7 +1,17 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include "CpuInterface.h"
 #include "Memory.h"
 #include "Vga.h"
 #include "Bios.h"
+
+#ifndef _WIN32
+#define O_BINARY 0
+#endif
 
 const uint16_t s_biosKeyMapping[80][4] = {
 //    Normal  Shifted w/Ctrl  w/Alt
@@ -104,6 +114,11 @@ Bios::Bios(Memory& memory, Vga& vga)
     m_altPressed = false;
     m_capsPressed = false;
     m_scanCode = 0;
+
+    for(int n = 0; n < m_maxDrives; n++)
+    {
+        m_driveInfo[n].fd = -1;
+    }
 }
 
 Bios::~Bios()
@@ -163,6 +178,41 @@ void Bios::Int10h(CpuInterface* cpu)
         {
             // Always return space with black background and white foreground
             cpu->SetReg16(CpuInterface::AX, 0x0720);
+            break;
+        }
+
+        case 0x0e:
+        {
+            char ch = cpu->GetReg8(CpuInterface::AL);
+
+            if (ch == 0x07)
+            {
+                break;
+            }
+            else if (ch == 0x0a)
+            {
+                m_cursorX = 0;
+                break;
+            }
+            else if (ch == 0x0d)
+            {
+                m_cursorX = 0;
+                m_cursorY++;
+                break;
+            }
+
+            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2, ch);
+            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2 + 1, 0x07);
+
+            m_cursorX++;
+            if (m_cursorX >= 80)
+            {
+                m_cursorX = 0;
+                m_cursorY++;
+            }
+
+            printf("Bios::Int10h() function 0x%02x printing '%c'\n", func, ch);
+            //::usleep(20 * 1000);
             break;
         }
 
@@ -294,6 +344,52 @@ void Bios::Int12h(CpuInterface* cpu)
     cpu->SetReg16(CpuInterface::AX, 639);
 }
 
+void Bios::Int13h(CpuInterface* cpu)
+{
+    uint8_t func = cpu->GetReg8(CpuInterface::AH);
+
+    switch(func)
+    {
+        case 0x02:
+        {
+            int drive = cpu->GetReg8(CpuInterface::DL);
+
+            if (drive >= m_maxDrives || m_driveInfo[drive].fd == -1)
+            {
+                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found \n", func, drive);
+                cpu->SetReg16(CpuInterface::AX, 0x0c00);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            DriveInfo &driveInfo = m_driveInfo[drive];
+            int fd = driveInfo.fd;
+            int cyl = cpu->GetReg8(CpuInterface::CH); // fixme
+            int sector = cpu->GetReg8(CpuInterface::CL) & 0x3f;
+            int head = cpu->GetReg8(CpuInterface::DH);
+            int bytes = cpu->GetReg8(CpuInterface::AL) * 512;
+            char* dstBuffer = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::BX);
+
+            int lba = (cyl * driveInfo.nHeads + head) * driveInfo.nSectors + sector - 1;
+
+            printf("Bios::Int13h() function 0x%02x cyl %d head %d sector %d lba %d\n", func, cyl, head, sector, lba);
+
+            ::lseek(fd, lba * 512, SEEK_SET);
+            int bytesRead = ::read(fd, dstBuffer, bytes);
+
+            printf("Bios::Int13h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, fd, bytes);
+
+            cpu->SetReg8(CpuInterface::AH, 0);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        default:
+            printf("Bios::Int13h() function 0x%02x not implemented yet!\n", func);
+            break;
+    }
+}
+
 void Bios::Int16h(CpuInterface* cpu)
 {
     uint8_t func = cpu->GetReg8(CpuInterface::AH);
@@ -403,6 +499,68 @@ uint8_t Bios::GetKey()
 bool Bios::HasKey()
 {
     return !m_keys.empty();
+}
+
+bool Bios::LoadMBR(int drive)
+{
+    if (drive >= m_maxDrives)
+    {
+        return false;
+    }
+
+    int fd = m_driveInfo[drive].fd;
+
+    if (fd < 0)
+    {
+        return false;
+    }
+
+    ::lseek(fd, 0, SEEK_SET);
+
+    return ::read(fd, m_memory + 0x7c00, 512) == 512;
+}
+
+bool Bios::OpenDrive(int drive, const std::string &fileName)
+{
+    if (drive >= m_maxDrives)
+        return false;
+
+    DriveInfo &driveInfo = m_driveInfo[drive];
+    int &fd = driveInfo.fd;
+
+    if (fd != -1)
+    {
+        ::close(fd);
+    }
+
+    fd = ::open(fileName.c_str(), O_RDONLY | O_BINARY);
+
+    if (fd != -1)
+    {
+        if (drive < 0x80)
+        {
+            driveInfo.nHeads = 2;
+            driveInfo.nSectors = 18;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+void Bios::CloseDrive(int drive)
+{
+    if (drive >= m_maxDrives)
+        return;
+
+    int &fd = m_driveInfo[drive].fd;
+
+    if (fd != -1)
+    {
+        ::close(fd);
+        fd = -1;
+    }
 }
 
 void Bios::ProcessKeys()

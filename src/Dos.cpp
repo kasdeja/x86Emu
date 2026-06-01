@@ -331,6 +331,13 @@ void Dos::Int21h(CpuInterface* cpu)
 
             printf("MsDos::Int21h() function 0x%02x open file path '%s' -> '%s' accessMode %d\n", func, path, FixPath(path).c_str(), accessMode);
 
+            // if (!strcmp(path, "EMMXXXX0"))
+            // {
+            //     cpu->SetReg16(CpuInterface::AX, 123);
+            //     cpu->SetFlag(CpuInterface::CF, false);
+            //     break;
+            // }
+
             int fd = ::open(FixPath(path).c_str(), O_RDONLY | O_BINARY);
 
             if (fd != -1)
@@ -431,9 +438,8 @@ void Dos::Int21h(CpuInterface* cpu)
 
                 ::memcpy(buff, srcBuffer, bytes);
                 buff[bytes] = 0;
-                printf("MsDos::Int21h() function 0x%02x write %d bytes to fd %d '%s'\n", func, bytesWritten, dosFd, buff);
-
                 bytesWritten = bytes;
+                printf("MsDos::Int21h() function 0x%02x write %d bytes to fd %d '%s'\n", func, bytesWritten, dosFd, buff);
             }
 
             cpu->SetReg16(CpuInterface::AX, bytesWritten);
@@ -474,7 +480,7 @@ void Dos::Int21h(CpuInterface* cpu)
         {
             char *path = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::DX);
 
-            printf("MsDos::Int21h() function 0x%02x path '%s'\n", func, path);
+            printf("MsDos::Int21h() function 0x%02x path '%s' ax 0x%04x\n", func, path, cpu->GetReg16(CpuInterface::AX));
 
             cpu->SetReg16(CpuInterface::CX, 0);
             cpu->SetFlag(CpuInterface::CF, false);
@@ -531,7 +537,7 @@ void Dos::Int21h(CpuInterface* cpu)
             char* output = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::DS) * 16 + cpu->GetReg16(CpuInterface::SI);
 
             ::memcpy(output, dosPath.c_str(), dosPath.size() + 1);
-            printf("MsDos::Int21h() function 0x%02x get current path '%s' -> '%s'\n", func, m_cwd, dosPath.c_str());
+            printf("MsDos::Int21h() function 0x%02x get current path '%s' -> '%s'\n", func, m_cwd.c_str(), dosPath.c_str());
 
             break;
         }

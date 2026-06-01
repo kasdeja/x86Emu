@@ -10,7 +10,6 @@
 #include "MemoryView.h"
 #include "Vga.h"
 #include "Bios.h"
-#include "Dos.h"
 #include "Cpu.h"
 #include "Pic.h"
 #include "Pit.h"
@@ -26,89 +25,11 @@ int main(int argc, char **argv)
     Vga*          vga        = new Vga(*memory);
     MemoryView*   memoryView = nullptr; // new MemoryView(memory, vga);
     Bios*         bios       = new Bios(*memory, *vga);
-    Dos*          dos        = new Dos(*memory, *bios);
     CpuInterface* cpu        = new Cpu(*memory);
     Pic*          pic        = new Pic(*cpu);
     Pit*          pit        = new Pit(*pic);
     Keyboard*     keyboard   = new Keyboard;
     SDLInterface* sdl        = new SDLInterface(vga, memoryView);
-
-    uint16_t envSeg   = 0x07ca;
-    uint16_t pspSeg   = 0x0814;
-    uint16_t imageSeg = 0x0824;
-    uint16_t nextSeg  = 0x9fff;
-
-    std::string game = (argc > 1) ? argv[1] : "wolf";
-    std::string gameCwd, gameImg, gameExe;
-
-    if (game == "wolf")
-    {
-        gameCwd = "./games/wolf";
-        gameImg = "./games/wolf/wolf3d.exe";
-        gameExe = "C:\\WOLF\\WOLF3D.EXE";
-    }
-    else if (game == "monkey")
-    {
-        gameCwd = "./games/monkey";
-        gameImg = "./games/monkey/monkey.exe";
-        gameExe = "C:\\MONKEY\\MONKEY.EXE";
-    }
-    else if (game == "lotus3")
-    {
-        gameCwd = "./games/lotus3";
-        gameImg = "./games/lotus3/lotus.exe";
-        gameExe = "C:\\LOTUS3\\LOTUS.EXE";
-    }
-    else if (game == "tyrian")
-    {
-        gameCwd = "./games/tyrian";
-        gameImg = "./games/tyrian/tyrian.exe";
-        gameExe = "C:\\TYRIAN\\TYRIAN.EXE";
-    }
-    else if (game == "another")
-    {
-        gameCwd = "./games/another";
-        gameImg = "./games/another/another.exe";
-        gameExe = "C:\\ANOTHER\\ANOTHER.EXE";
-    }
-    else if (game == "prehist2")
-    {
-        gameCwd = "./games/prehist2";
-        gameImg = "./games/prehist2/pre2.exe";
-        gameExe = "C:\\PREHIST2\\PRE2.EXE";
-    }
-    else if (game == "priv")
-    {
-        gameCwd = "./games/priv";
-        gameImg = "./games/priv/priv.exe";
-        gameExe = "C:\\PRIV\\PRIV.EXE";
-    }
-    else if (game == "tie")
-    {
-        gameCwd = "./games/tie";
-        gameImg = "./games/tie/tie.exe";
-        gameExe = "C:\\TIE\\TIE.EXE";
-    }
-    else if (game == "wc1")
-    {
-        gameCwd = "./games/wc1";
-        gameImg = "./games/wc1/wc.exe";
-        gameExe = "C:\\WC1\\wc.EXE";
-    }
-    else if (game == "xwing")
-    {
-        gameCwd = "./games/xwing";
-        gameImg = "./games/xwing/xwing.exe";
-        gameExe = "C:\\XWING\\XWING.EXE";
-    }
-
-    dos->SetCDrive("./games");
-    dos->SetCwd(gameCwd);
-
-    dos->BuildEnv(envSeg, gameExe, { "PATH=C:\\" });
-    auto imageInfo = dos->LoadExeFromFile(imageSeg, gameImg.c_str());
-    dos->BuildPsp(pspSeg, envSeg, nextSeg, "\r\r\r\r\r\r\r\r");
-    dos->SetPspSeg(pspSeg);
 
     pic->onAck = [keyboard](int irqNo)
         {
@@ -119,13 +40,9 @@ int main(int argc, char **argv)
         };
 
     cpu->onInterrupt =
-        [cpu, dos, bios](int intNo)
+        [cpu, bios](int intNo)
         {
-            if (intNo == 0x01) // Single step / int 21 alias??? WTF?
-            {
-                dos->Int21h(cpu);
-            }
-            else if (intNo == 0x10)
+            if (intNo == 0x10)
             {
                 bios->Int10h(cpu);
             }
@@ -136,6 +53,10 @@ int main(int argc, char **argv)
             else if (intNo == 0x12)
             {
                 bios->Int12h(cpu);
+            }
+            else if (intNo == 0x13)
+            {
+                bios->Int13h(cpu);
             }
             else if (intNo == 0x15)
             {
@@ -148,22 +69,6 @@ int main(int argc, char **argv)
             else if (intNo == 0x1a)
             {
                 bios->Int1Ah(cpu);
-            }
-            else if (intNo == 0x21)
-            {
-                dos->Int21h(cpu);
-            }
-            else if (intNo == 0x2f) // XMS interrupt
-            {
-                // Do nothing
-            }
-            else if (intNo == 0x33) // Mouse
-            {
-                // Do nothing
-            }
-            else if (intNo == 0x74) // ???
-            {
-                // Do nothing
             }
             else
             {
@@ -268,18 +173,10 @@ int main(int argc, char **argv)
     cpu->onVgaMemRead  = [vga](uint32_t addr) { return vga->MemRead(addr); };
     cpu->onVgaMemWrite = [vga](uint32_t addr, uint8_t value) { vga->MemWrite(addr, value); };
 
-    cpu->SetReg16(CpuInterface::CS, imageInfo.initCS);
-    cpu->SetReg16(CpuInterface::IP, imageInfo.initIP);
-    cpu->SetReg16(CpuInterface::SS, imageInfo.initSS);
-    cpu->SetReg16(CpuInterface::SP, imageInfo.initSP);
-    cpu->SetReg16(CpuInterface::DS, pspSeg);
-    cpu->SetReg16(CpuInterface::ES, pspSeg);
-    cpu->SetReg16(CpuInterface::AX, 0); // was 2, why?
+    cpu->SetReg16(CpuInterface::IP, 0x7c00);
 
-    cpu->SetReg16(CpuInterface::CX, 0xff);
-    cpu->SetReg16(CpuInterface::SI, 0x00);
-    cpu->SetReg16(CpuInterface::DI, 0x80);
-    cpu->SetReg16(CpuInterface::BP, 0x91C);
+    bios->OpenDrive(0, "freedos/x86BOOT.img");
+    bios->LoadMBR(0);
 
     auto runEmulator =
         [cpu, pic, pit, keyboard](int64_t usec, int64_t instructionsPerSecond) -> bool
@@ -345,7 +242,6 @@ int main(int argc, char **argv)
 
     delete sdl;
     delete cpu;
-    delete dos;
     delete bios;
     delete memoryView;
     delete vga;

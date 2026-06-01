@@ -2390,31 +2390,26 @@ void Cpu::ExecuteInstruction()
 
     m_instructionCnt++;
 
-    // static bool disasm = false;
-    //
-    // if (m_register[Register::ES] == 0xa000 && m_register[Register::SI] == 0x000e && opcode == 0xf3)
-    // {
-    //     disasm = true;
-    // }
-    //
-    // if (disasm || opcode == 0xf3)
-    // {
-        // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x ",
-        //     m_register[Register::AX],
-        //     m_register[Register::BX],
-        //     m_register[Register::CX],
-        //     m_register[Register::DX],
-        //     m_register[Register::SI],
-        //     m_register[Register::DI],
-        //     m_register[Register::SP],
-        //     m_register[Register::BP],
-        //     m_register[Register::CS],
-        //     m_register[Register::DS],
-        //     m_register[Register::ES],
-        //     m_register[Register::SS]);
-        //
-        //     printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
-    // }
+    bool disasm = true;
+
+    if (disasm)
+    {
+        printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x ",
+            m_register[Register::AX],
+            m_register[Register::BX],
+            m_register[Register::CX],
+            m_register[Register::DX],
+            m_register[Register::SI],
+            m_register[Register::DI],
+            m_register[Register::SP],
+            m_register[Register::BP],
+            m_register[Register::CS],
+            m_register[Register::DS],
+            m_register[Register::ES],
+            m_register[Register::SS]);
+
+        printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+    }
 
     switch(opcode)
     {

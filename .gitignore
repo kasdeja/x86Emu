@@ -17,5 +17,6 @@ games/tie/*
 games/tyrian/*
 games/wc1/*
 games/xwing/*
+freedos/*
 win-x64/SDL*
 wolf_src

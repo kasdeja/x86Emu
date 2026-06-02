@@ -58,6 +58,10 @@ int main(int argc, char **argv)
             {
                 bios->Int13h(cpu);
             }
+            else if (intNo == 0x14)
+            {
+                // Do nothing (serial port)
+            }
             else if (intNo == 0x15)
             {
                 // Do nothing

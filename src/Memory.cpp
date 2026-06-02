@@ -24,7 +24,19 @@ Memory::Memory(uint32_t ramSizeKb)
     // e6 20           out 0x20, al
     // 58              pop ax
     // cf              iret
-    static uint8_t defaultIrqHandler[7]   = { 0x50, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
+    static uint8_t defaultIrqHandler[7] = { 0x50, 0xb0, 0x20, 0xe6, 0x20, 0x58, 0xcf };
+
+    // 50              push ax
+    // 1e              push ds
+    // 31 c0           xor ax, ax
+    // 8e d8           mov ds, ax
+    // ff 06 6c 04     inc word ptr [46c]
+    // b0 20           mov al, 0x20
+    // e6 20           out 0x20, al
+    // 1f              pop ds
+    // 58              pop ax
+    // cf              iret
+    static uint8_t timerIrqHandler[17] = { 0x50, 0x1e, 0x31, 0xc0, 0x8e, 0xd8, 0xff, 0x06, 0x6c, 0x04, 0xb0, 0x20, 0xe6, 0x20, 0x1f, 0x58, 0xcf };
 
     // 50              push ax
     // b0 ff           mov al, 0xff
@@ -41,6 +53,7 @@ Memory::Memory(uint32_t ramSizeKb)
     ::memcpy(m_memory + 0xfff00, defaultIrqHandler, 7);
     ::memcpy(m_memory + 0xfff10, defaultIntHandler, 1);
     ::memcpy(m_memory + 0xfff20, keyboardIrqHandler, 11);
+    ::memcpy(m_memory + 0xfff30, timerIrqHandler, 17);
 
     // Bios Data Area (BDA)
     *reinterpret_cast<uint16_t *>(m_memory + 0x413) = 639;
@@ -51,6 +64,9 @@ Memory::Memory(uint32_t ramSizeKb)
     {
         reinterpret_cast<uint32_t *>(m_memory)[n] = 0xfff00000;
     }
+
+    // Install timer IRQ handler
+    reinterpret_cast<uint32_t *>(m_memory)[8] = 0xfff30000;
 
     // Install keyboard IRQ handler
     reinterpret_cast<uint32_t *>(m_memory)[9] = 0xfff20000;

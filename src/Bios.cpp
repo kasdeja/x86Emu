@@ -103,7 +103,8 @@ Bios::Bios(Memory& memory, Vga& vga)
     , m_vga   (vga)
 {
     // BIOS Data Area
-    m_memory[0x484] = 24; // number of rows on screen - 1
+    m_memory[0x44a] = 80; // number of columns
+    m_memory[0x484] = 24; // number of rows - 1
 
     m_cursorX = 0;
     m_cursorY = 0;
@@ -151,6 +152,15 @@ void Bios::Int10h(CpuInterface* cpu)
             break;
         }
 
+        case 0x01: //  Set Cursor Type
+        {
+            printf("Bios::Int10h() function 0x%02x - set cursor type start %d, end %d\n",
+                func,
+                cpu->GetReg8(CpuInterface::CH),
+                cpu->GetReg8(CpuInterface::CL));
+            break;
+        }
+
         case 0x02: // Set cursor position
         {
             uint8_t page = cpu->GetReg8(CpuInterface::BH);
@@ -176,12 +186,26 @@ void Bios::Int10h(CpuInterface* cpu)
 
         case 0x08: // Read character and attribute at cursor
         {
+            printf("Bios::Int10h() function 0x%02x - read character and attribute at cursor\n");
+
             // Always return space with black background and white foreground
             cpu->SetReg16(CpuInterface::AX, 0x0720);
             break;
         }
 
-        case 0x0e:
+        case 0x09: // Write Character and Attribute at Cursor Position
+        {
+            char ch = cpu->GetReg8(CpuInterface::AL);
+            char attr = cpu->GetReg8(CpuInterface::BL);
+            int cnt = cpu->GetReg16(CpuInterface::CX);
+
+            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2, ch);
+            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2 + 1, attr);
+            printf("Bios::Int10h() function 0x%02x write '%c' attr %d cnt %d\n", func, ch, attr, cnt);
+            break;
+        }
+
+        case 0x0e: // Write Text
         {
             char ch = cpu->GetReg8(CpuInterface::AL);
 
@@ -212,7 +236,6 @@ void Bios::Int10h(CpuInterface* cpu)
             }
 
             printf("Bios::Int10h() function 0x%02x printing '%c'\n", func, ch);
-            //::usleep(20 * 1000);
             break;
         }
 
@@ -356,7 +379,7 @@ void Bios::Int13h(CpuInterface* cpu)
 
             if (drive >= m_maxDrives || m_driveInfo[drive].fd == -1)
             {
-                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found \n", func, drive);
+                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found\n", func, drive);
                 cpu->SetReg16(CpuInterface::AX, 0x0c00);
                 cpu->SetFlag(CpuInterface::CF, true);
                 break;
@@ -381,6 +404,48 @@ void Bios::Int13h(CpuInterface* cpu)
 
             cpu->SetReg8(CpuInterface::AH, 0);
             cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x08: // Read Drive Parameters
+        {
+            int drive = cpu->GetReg8(CpuInterface::DL);
+
+            // FIXME: add hdd support
+            if (drive != 0 && drive != 1)
+            {
+                printf("Bios::Int13h() function 0x%02x drive 0x%2x no HDD not supported yet\n", func, drive);
+                cpu->SetReg8(CpuInterface::BL, 0);
+                cpu->SetReg8(CpuInterface::CH, 0);
+                cpu->SetReg8(CpuInterface::CL, 0);
+                cpu->SetReg8(CpuInterface::DH, 0);
+                cpu->SetReg8(CpuInterface::DL, 0);  // number of drives
+
+                cpu->SetReg8(CpuInterface::AH, 0);
+                cpu->SetFlag(CpuInterface::CF, false);
+                break;
+            }
+
+            cpu->SetReg8(CpuInterface::BL, 4);  // 1.44MB floppy
+            cpu->SetReg8(CpuInterface::CH, 79); // max cylinders
+            cpu->SetReg8(CpuInterface::CL, 18); // sectors per track
+            cpu->SetReg8(CpuInterface::DH, 1);  // max head
+
+            cpu->SetReg8(CpuInterface::DL, 1);  // number of floppies
+
+            cpu->SetReg16(CpuInterface::ES, 0xf000); // Disk Base Table, empty currently
+            cpu->SetReg16(CpuInterface::DI, 0x0000);
+
+            cpu->SetReg8(CpuInterface::AH, 0);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x41: // Check EDD extension present
+        {
+            printf("Bios::Int13h() function 0x%02x EDD extension not supported!\n", func);
+            cpu->SetReg8(CpuInterface::AH, 1);
+            cpu->SetFlag(CpuInterface::CF, true);
             break;
         }
 
@@ -429,7 +494,7 @@ void Bios::Int16h(CpuInterface* cpu)
             }
             else
             {
-                printf("Bios::Int16h() function 0x%02x no key\n", func);
+                //printf("Bios::Int16h() function 0x%02x no key\n", func);
                 cpu->SetReg16(CpuInterface::AX, 0); // no scancode
                 cpu->SetFlag(CpuInterface::ZF, true);
             }

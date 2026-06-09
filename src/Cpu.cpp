@@ -3952,8 +3952,9 @@ void Cpu::ExecuteInstruction()
             m_register[Register::IP] += 2;
             break;
 
-//         case 0xf4: // halt
-//             break;
+        case 0xf4: // halt
+            m_register[Register::IP] += 1;
+            break;
 
         case 0xf5: // cmc
             SetCF(!GetCF());

@@ -28,6 +28,9 @@ public:
     uint8_t MemRead(uint32_t addr);
     void    MemWrite(uint32_t addr, uint8_t value);
 
+    void SetCursorPos(uint8_t x, uint8_t y);
+    void SetCursorType(uint8_t start, uint8_t end);
+
     uint8_t* GetColorMap();
 
     void SetMode(Mode mode);
@@ -65,6 +68,11 @@ private:
     uint32_t    m_writeMode;
     uint32_t    m_latch;
     uint32_t    m_startAddress;
+
+    uint8_t     m_cursorX;
+    uint8_t     m_cursorY;
+    uint8_t     m_cursorStart;
+    uint8_t     m_cursorEnd;
 
     uint16_t    m_colorMapReadIdx;
     uint16_t    m_colorMapWriteIdx;

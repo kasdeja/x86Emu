@@ -106,6 +106,9 @@ Bios::Bios(Memory& memory, Vga& vga)
     m_memory[0x44a] = 80; // number of columns
     m_memory[0x484] = 24; // number of rows - 1
 
+    m_memory[0x462] = 0;  // active display page number
+    m_memory[0x449] = 3;  // current video number
+
     m_cursorX = 0;
     m_cursorY = 0;
 
@@ -169,16 +172,18 @@ void Bios::Int10h(CpuInterface* cpu)
 
             m_cursorX = col;
             m_cursorY = row;
+            m_memory[0x450] = col;
+            m_memory[0x451] = row;
 
-            printf("Bios::Int10h() function 0x%02x - setting cursor position to %d, %d (page %d)\n",
-                   func, row, col, page);
+            m_vga.SetCursorPos(col, row);
+            //printf("Bios::Int10h() function 0x%02x - setting cursor position to %d, %d (page %d)\n", func, row, col, page);
             break;
         }
 
         case 0x03: // Read cursor position and size
         {
-            cpu->SetReg8(CpuInterface::CH, 11);
-            cpu->SetReg8(CpuInterface::CL, 12);
+            cpu->SetReg8(CpuInterface::CH, 13);
+            cpu->SetReg8(CpuInterface::CL, 14);
             cpu->SetReg8(CpuInterface::DH, m_cursorY);
             cpu->SetReg8(CpuInterface::DL, m_cursorX);
             break;
@@ -186,10 +191,11 @@ void Bios::Int10h(CpuInterface* cpu)
 
         case 0x08: // Read character and attribute at cursor
         {
-            printf("Bios::Int10h() function 0x%02x - read character and attribute at cursor\n");
+            printf("Bios::Int10h() function 0x%02x - read character and attribute at cursor\n", func);
 
-            // Always return space with black background and white foreground
-            cpu->SetReg16(CpuInterface::AX, 0x0720);
+            uint32_t addr = 0x18000 + m_cursorY * 160 + m_cursorX * 2;
+            cpu->SetReg8(CpuInterface::AL, m_vga.MemRead(addr));
+            cpu->SetReg8(CpuInterface::AH, m_vga.MemRead(addr + 1));
             break;
         }
 
@@ -199,9 +205,11 @@ void Bios::Int10h(CpuInterface* cpu)
             char attr = cpu->GetReg8(CpuInterface::BL);
             int cnt = cpu->GetReg16(CpuInterface::CX);
 
-            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2, ch);
-            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2 + 1, attr);
-            printf("Bios::Int10h() function 0x%02x write '%c' attr %d cnt %d\n", func, ch, attr, cnt);
+            uint32_t addr = 0x18000 + m_cursorY * 160 + m_cursorX * 2;
+            m_vga.MemWrite(addr, ch);
+            m_vga.MemWrite(addr + 1, attr);
+
+            //printf("Bios::Int10h() function 0x%02x write '%c' attr %d cnt %d\n", func, ch, attr, cnt);
             break;
         }
 
@@ -211,31 +219,65 @@ void Bios::Int10h(CpuInterface* cpu)
 
             if (ch == 0x07)
             {
-                break;
+                // do nothing
+            }
+            else if (ch == 0x08)
+            {
+                if (m_cursorX > 0)
+                {
+                    m_cursorX--;
+                }
             }
             else if (ch == 0x0a)
             {
                 m_cursorX = 0;
-                break;
             }
             else if (ch == 0x0d)
             {
                 m_cursorX = 0;
                 m_cursorY++;
-                break;
+            }
+            else
+            {
+                m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2, ch);
+                m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2 + 1, 0x07);
+
+                m_cursorX++;
             }
 
-            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2, ch);
-            m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2 + 1, 0x07);
-
-            m_cursorX++;
             if (m_cursorX >= 80)
             {
                 m_cursorX = 0;
                 m_cursorY++;
             }
 
-            printf("Bios::Int10h() function 0x%02x printing '%c'\n", func, ch);
+            if (m_cursorY > 24)
+            {
+                m_cursorY = 24;
+
+                // Scroll up
+                for(int y = 0; y < 24; y++)
+                {
+                    for(int x = 0; x < 160; x++)
+                    {
+                        uint32_t addr = 0x18000 + y * 160 + x;
+                        char ch = m_vga.MemRead(addr + 160);
+                        m_vga.MemWrite(addr, ch);
+                    }
+                }
+
+                // Clear last line
+                for(int x = 0; x < 80; x++)
+                {
+                    uint32_t addr = 0x18000 + 24 * 160 + x * 2;
+                    m_vga.MemWrite(addr, 32);
+                    m_vga.MemWrite(addr + 1, 7);
+                }
+            }
+
+            m_memory[0x450] = m_cursorX;
+            m_memory[0x451] = m_cursorY;
+            m_vga.SetCursorPos(m_cursorX, m_cursorY);
             break;
         }
 
@@ -395,12 +437,12 @@ void Bios::Int13h(CpuInterface* cpu)
 
             int lba = (cyl * driveInfo.nHeads + head) * driveInfo.nSectors + sector - 1;
 
-            printf("Bios::Int13h() function 0x%02x cyl %d head %d sector %d lba %d\n", func, cyl, head, sector, lba);
+            //printf("Bios::Int13h() function 0x%02x cyl %d head %d sector %d lba %d\n", func, cyl, head, sector, lba);
 
             ::lseek(fd, lba * 512, SEEK_SET);
             int bytesRead = ::read(fd, dstBuffer, bytes);
 
-            printf("Bios::Int13h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, fd, bytes);
+            //printf("Bios::Int13h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, fd, bytes);
 
             cpu->SetReg8(CpuInterface::AH, 0);
             cpu->SetFlag(CpuInterface::CF, false);

@@ -86,6 +86,11 @@ Vga::Vga(Memory& memory)
     m_writeMode         = 0;
     m_startAddress      = 0;
 
+    m_cursorX     = 2;
+    m_cursorY     = 1;
+    m_cursorStart = 13;
+    m_cursorEnd   = 14;
+
     // Alloc memory
     m_linear       = reinterpret_cast<uint8_t *>(aligned_alloc(32,  64 * 1024 + 1024));
     m_videoMem     = memory.GetVgaMem();
@@ -135,13 +140,13 @@ Vga::Vga(Memory& memory)
     }
 
     // Fill video memory
+    ::memset(m_videoMem, 0, 256 * 1024);
+
     for(int n = 0; n < 4000; n++)
     {
         m_videoMemText[2 * n]     = 32;
         m_videoMemText[2 * n + 1] = 7;
     }
-
-    ::memset(m_videoMem, 0, 256 * 1024);
 
     // Sample content
     // const char *str = "This is sample text. Hello World! :)";
@@ -513,6 +518,18 @@ void Vga::MemWrite(uint32_t addr, uint8_t value)
     }
 }
 
+void Vga::SetCursorPos(uint8_t x, uint8_t y)
+{
+    m_cursorX = x;
+    m_cursorY = y;
+}
+
+void Vga::SetCursorType(uint8_t start, uint8_t end)
+{
+    m_cursorStart = start;
+    m_cursorEnd = end;
+}
+
 
 uint8_t* Vga::GetColorMap()
 {
@@ -713,6 +730,18 @@ void Vga::DrawTextModeLine8(short *pixel, int y)
     uint8_t* textLine   = m_videoMemText + (y >> 4) * 160;
     const uint64_t* font = reinterpret_cast<const uint64_t *>(s_defaultFont + (y & 15));
 
+    uint64_t cursorMask = 0;
+
+    for(int n = 0; n < 8; n++)
+    {
+        int line = (y & 15) + n;
+
+        if (line >= m_cursorStart && line <= m_cursorEnd)
+        {
+            cursorMask |= 0xffLL << (n * 8);
+        }
+    }
+
     for(int n = 0; n < 80; n++)
     {
         uint64_t ch   = font[textLine[n * 2] << 1];
@@ -721,6 +750,11 @@ void Vga::DrawTextModeLine8(short *pixel, int y)
 
         v[0] = m_colorMap[attr >> 4];
         v[1] = m_colorMap[attr & 15];
+
+        if (m_cursorX == n && m_cursorY == (y >> 4))
+        {
+            ch |= cursorMask;
+        }
 
         for(int m = 0; m < 8; m++)
         {
@@ -769,6 +803,8 @@ void Vga::DrawTextModeLine8(short *pixel, int y)
 
     for(int n = 0; n < 96; n++)
         *pixel++ = 0;
+
+
 }
 
 void Vga::DrawMode13hScreenFiltered(uint8_t* pixels, int width, int height, int stride)

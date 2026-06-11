@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <queue>
+#include <map>
 
 // forward declarations
 class CpuInterface;
@@ -32,7 +33,8 @@ public:
     bool    HasKey();
 
     bool LoadMBR(int drive);
-    bool OpenDrive(int drive, const std::string &fileName);
+    bool OpenDrive(int drive, const std::string &fileName, int nCylinders, int nHeads, int nSectors);
+    bool OpenFloppyDrive(int drive, const std::string &fileName);
     void CloseDrive(int drive);
 
 private:
@@ -41,6 +43,8 @@ private:
         int fd;
         int nHeads;
         int nSectors;
+        int nCylinders;
+        bool isFloppy;
     };
 
     uint8_t* m_memory;
@@ -59,10 +63,13 @@ private:
     std::queue<uint8_t>  m_keys;
     std::queue<uint16_t> m_processedKeys;
 
-    static constexpr int m_maxDrives = 4;
-    DriveInfo m_driveInfo[4];
+    std::map<int, DriveInfo> m_driveInfo;
 
     void ProcessKeys();
+    void SetCursorPos(uint8_t x, uint8_t y);
+    void ScrollWindow(int x1, int y1, int x2, int y2, int nLines, uint8_t attr);
+
+    uint32_t CHStoLBA(const DriveInfo& driveInfo, uint32_t cylReg, uint32_t head, uint32_t cylSectorReg);
 };
 
 #endif /* X86EMU_BIOS */

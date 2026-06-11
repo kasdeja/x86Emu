@@ -179,7 +179,8 @@ int main(int argc, char **argv)
 
     cpu->SetReg16(CpuInterface::IP, 0x7c00);
 
-    bios->OpenDrive(0, "freedos/x86BOOT.img");
+    bios->OpenFloppyDrive(0, "freedos/x86BOOT.img");
+    bios->OpenDrive(0x80, "freedos/HD.img", 128, 16, 63);
     bios->LoadMBR(0);
 
     auto runEmulator =

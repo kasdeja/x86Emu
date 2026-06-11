@@ -86,10 +86,11 @@ Vga::Vga(Memory& memory)
     m_writeMode         = 0;
     m_startAddress      = 0;
 
-    m_cursorX     = 2;
-    m_cursorY     = 1;
-    m_cursorStart = 13;
-    m_cursorEnd   = 14;
+    m_cursorX        = 2;
+    m_cursorY        = 1;
+    m_cursorStart    = 13;
+    m_cursorEnd      = 14;
+    m_cursorBlinkCnt = 0;
 
     // Alloc memory
     m_linear       = reinterpret_cast<uint8_t *>(aligned_alloc(32,  64 * 1024 + 1024));
@@ -147,18 +148,6 @@ Vga::Vga(Memory& memory)
         m_videoMemText[2 * n]     = 32;
         m_videoMemText[2 * n + 1] = 7;
     }
-
-    // Sample content
-    // const char *str = "This is sample text. Hello World! :)";
-    //
-    // for(int n = 0; n < ::strlen(str); n++)
-    // {
-    //     m_videoMemText[2 * n] = str[n];
-    //     m_videoMemText[2 * n + 1] = 15 + (3 << 4);
-    //
-    //     m_videoMemText[2 * n + 160] = str[n];
-    //     m_videoMemText[2 * n + 161] = 7;
-    // }
 }
 
 Vga::~Vga()
@@ -587,11 +576,12 @@ void Vga::SetMode(Vga::Mode mode)
     {
         static const uint8_t seqReg[5]   = { 0x03, 0x01, 0x0f, 0x00, 0x0e };
         static const uint8_t gcReg[9]    = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x05, 0x0f, 0xff };
-        static const uint8_t crtcReg[25] =
-            { 0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f,
-              0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-              0x9c, 0x0e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3,
-              0xff };
+        static const uint8_t crtcReg[25] = {
+            0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f,
+            0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x9c, 0x0e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3,
+            0xff
+        };
 
         ::memcpy(m_sequencerReg,    seqReg,   5);
         ::memcpy(m_graphicsCtrlReg, gcReg,    9);
@@ -602,9 +592,18 @@ void Vga::SetMode(Vga::Mode mode)
 void Vga::DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride)
 {
     if (m_currentMode == Mode::Mode13h)
+    {
         DrawMode13hScreenFiltered(pixels, width, height, stride);
+    }
     else
+    {
         DrawTextModeScreenFiltered(pixels, width, height, stride);
+    }
+
+    if (++m_cursorBlinkCnt > 36)
+    {
+        m_cursorBlinkCnt = 0;
+    }
 }
 
 // private methods
@@ -751,7 +750,7 @@ void Vga::DrawTextModeLine8(short *pixel, int y)
         v[0] = m_colorMap[attr >> 4];
         v[1] = m_colorMap[attr & 15];
 
-        if (m_cursorX == n && m_cursorY == (y >> 4))
+        if (m_cursorX == n && m_cursorY == (y >> 4) && m_cursorBlinkCnt < 18)
         {
             ch |= cursorMask;
         }

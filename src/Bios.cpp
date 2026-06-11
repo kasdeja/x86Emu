@@ -118,11 +118,6 @@ Bios::Bios(Memory& memory, Vga& vga)
     m_altPressed = false;
     m_capsPressed = false;
     m_scanCode = 0;
-
-    for(int n = 0; n < m_maxDrives; n++)
-    {
-        m_driveInfo[n].fd = -1;
-    }
 }
 
 Bios::~Bios()
@@ -170,13 +165,7 @@ void Bios::Int10h(CpuInterface* cpu)
             uint8_t row  = cpu->GetReg8(CpuInterface::DH);
             uint8_t col  = cpu->GetReg8(CpuInterface::DL);
 
-            m_cursorX = col;
-            m_cursorY = row;
-            m_memory[0x450] = col;
-            m_memory[0x451] = row;
-
-            m_vga.SetCursorPos(col, row);
-            //printf("Bios::Int10h() function 0x%02x - setting cursor position to %d, %d (page %d)\n", func, row, col, page);
+            SetCursorPos(col, row);
             break;
         }
 
@@ -189,11 +178,22 @@ void Bios::Int10h(CpuInterface* cpu)
             break;
         }
 
+        case 0x06: // Scroll Window Up
+        {
+            ScrollWindow(
+                cpu->GetReg8(CpuInterface::CL),
+                cpu->GetReg8(CpuInterface::CH),
+                cpu->GetReg8(CpuInterface::DL),
+                cpu->GetReg8(CpuInterface::DH),
+                cpu->GetReg8(CpuInterface::AL),
+                cpu->GetReg8(CpuInterface::BH));
+            break;
+        }
+
         case 0x08: // Read character and attribute at cursor
         {
-            printf("Bios::Int10h() function 0x%02x - read character and attribute at cursor\n", func);
-
             uint32_t addr = 0x18000 + m_cursorY * 160 + m_cursorX * 2;
+
             cpu->SetReg8(CpuInterface::AL, m_vga.MemRead(addr));
             cpu->SetReg8(CpuInterface::AH, m_vga.MemRead(addr + 1));
             break;
@@ -201,15 +201,14 @@ void Bios::Int10h(CpuInterface* cpu)
 
         case 0x09: // Write Character and Attribute at Cursor Position
         {
-            char ch = cpu->GetReg8(CpuInterface::AL);
+            char ch   = cpu->GetReg8(CpuInterface::AL);
             char attr = cpu->GetReg8(CpuInterface::BL);
-            int cnt = cpu->GetReg16(CpuInterface::CX);
+            int  cnt  = cpu->GetReg16(CpuInterface::CX);
 
             uint32_t addr = 0x18000 + m_cursorY * 160 + m_cursorX * 2;
+
             m_vga.MemWrite(addr, ch);
             m_vga.MemWrite(addr + 1, attr);
-
-            //printf("Bios::Int10h() function 0x%02x write '%c' attr %d cnt %d\n", func, ch, attr, cnt);
             break;
         }
 
@@ -241,7 +240,6 @@ void Bios::Int10h(CpuInterface* cpu)
             {
                 m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2, ch);
                 m_vga.MemWrite(0x18000 + m_cursorY * 160 + m_cursorX * 2 + 1, 0x07);
-
                 m_cursorX++;
             }
 
@@ -254,29 +252,9 @@ void Bios::Int10h(CpuInterface* cpu)
             if (m_cursorY > 24)
             {
                 m_cursorY = 24;
-
-                // Scroll up
-                for(int y = 0; y < 24; y++)
-                {
-                    for(int x = 0; x < 160; x++)
-                    {
-                        uint32_t addr = 0x18000 + y * 160 + x;
-                        char ch = m_vga.MemRead(addr + 160);
-                        m_vga.MemWrite(addr, ch);
-                    }
-                }
-
-                // Clear last line
-                for(int x = 0; x < 80; x++)
-                {
-                    uint32_t addr = 0x18000 + 24 * 160 + x * 2;
-                    m_vga.MemWrite(addr, 32);
-                    m_vga.MemWrite(addr + 1, 7);
-                }
+                ScrollWindow(0, 0, 79, 24, 1, 7);
             }
 
-            m_memory[0x450] = m_cursorX;
-            m_memory[0x451] = m_cursorY;
             m_vga.SetCursorPos(m_cursorX, m_cursorY);
             break;
         }
@@ -288,7 +266,6 @@ void Bios::Int10h(CpuInterface* cpu)
 
             cpu->SetReg16(CpuInterface::AX, (columns << 8) | currentMode);
             cpu->SetReg8(CpuInterface::BH, 0);
-
             break;
         }
 
@@ -415,34 +392,65 @@ void Bios::Int13h(CpuInterface* cpu)
 
     switch(func)
     {
-        case 0x02:
+        case 0x00: // Reset Disk System
         {
             int drive = cpu->GetReg8(CpuInterface::DL);
 
-            if (drive >= m_maxDrives || m_driveInfo[drive].fd == -1)
+            if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
+            {
+                cpu->SetReg16(CpuInterface::AX, 0x0c00);
+                cpu->SetFlag(CpuInterface::CF, true);
+            }
+            else
+            {
+                cpu->SetFlag(CpuInterface::CF, false);
+            }
+
+            break;
+        }
+
+        case 0x02: // Read Disk Sectors
+        case 0x03: // Write Disk Sectors
+        {
+            int drive = cpu->GetReg8(CpuInterface::DL);
+
+            if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
             {
                 printf("Bios::Int13h() function 0x%02x drive 0x%2x not found\n", func, drive);
+
                 cpu->SetReg16(CpuInterface::AX, 0x0c00);
                 cpu->SetFlag(CpuInterface::CF, true);
                 break;
             }
 
-            DriveInfo &driveInfo = m_driveInfo[drive];
-            int fd = driveInfo.fd;
-            int cyl = cpu->GetReg8(CpuInterface::CH); // fixme
-            int sector = cpu->GetReg8(CpuInterface::CL) & 0x3f;
-            int head = cpu->GetReg8(CpuInterface::DH);
-            int bytes = cpu->GetReg8(CpuInterface::AL) * 512;
-            char* dstBuffer = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::BX);
+            DriveInfo& driveInfo = m_driveInfo[drive];
 
-            int lba = (cyl * driveInfo.nHeads + head) * driveInfo.nSectors + sector - 1;
+            int      fd        = driveInfo.fd;
+            uint32_t bytes     = cpu->GetReg8(CpuInterface::AL) * 512;
+            char*    dstBuffer = reinterpret_cast<char *>(m_memory) + cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::BX);
 
-            //printf("Bios::Int13h() function 0x%02x cyl %d head %d sector %d lba %d\n", func, cyl, head, sector, lba);
+            uint32_t lba = CHStoLBA(
+                driveInfo,
+                cpu->GetReg8(CpuInterface::CH),
+                cpu->GetReg8(CpuInterface::DH),
+                cpu->GetReg8(CpuInterface::CL));
 
             ::lseek(fd, lba * 512, SEEK_SET);
-            int bytesRead = ::read(fd, dstBuffer, bytes);
 
-            //printf("Bios::Int13h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, fd, bytes);
+            if (func == 0x02)
+            {
+                uint32_t bytesRead = ::read(fd, dstBuffer, bytes);
+
+                printf("Bios::Int13h() function 0x%02x lba %d\n", func, lba);
+                printf("Bios::Int13h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, fd, bytes);
+            }
+            else if (func == 0x03)
+            {
+                uint32_t bytesWrite = ::write(fd, dstBuffer, bytes);
+
+                printf("Bios::Int13h() function 0x%02x lba %d\n", func, lba);
+                printf("Bios::Int13h() function 0x%02x write %d bytes from fd %d (requested %d)\n", func, bytesWrite, fd, bytes);
+            }
 
             cpu->SetReg8(CpuInterface::AH, 0);
             cpu->SetFlag(CpuInterface::CF, false);
@@ -453,32 +461,79 @@ void Bios::Int13h(CpuInterface* cpu)
         {
             int drive = cpu->GetReg8(CpuInterface::DL);
 
-            // FIXME: add hdd support
-            if (drive != 0 && drive != 1)
+            if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
             {
-                printf("Bios::Int13h() function 0x%02x drive 0x%2x no HDD not supported yet\n", func, drive);
+                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found\n", func, drive);
+
                 cpu->SetReg8(CpuInterface::BL, 0);
                 cpu->SetReg8(CpuInterface::CH, 0);
                 cpu->SetReg8(CpuInterface::CL, 0);
                 cpu->SetReg8(CpuInterface::DH, 0);
                 cpu->SetReg8(CpuInterface::DL, 0);  // number of drives
-
                 cpu->SetReg8(CpuInterface::AH, 0);
-                cpu->SetFlag(CpuInterface::CF, false);
+                cpu->SetFlag(CpuInterface::CF, true);
                 break;
             }
 
-            cpu->SetReg8(CpuInterface::BL, 4);  // 1.44MB floppy
-            cpu->SetReg8(CpuInterface::CH, 79); // max cylinders
-            cpu->SetReg8(CpuInterface::CL, 18); // sectors per track
-            cpu->SetReg8(CpuInterface::DH, 1);  // max head
+            DriveInfo& driveInfo = m_driveInfo[drive];
 
-            cpu->SetReg8(CpuInterface::DL, 1);  // number of floppies
+            if (driveInfo.isFloppy)
+            {
+                cpu->SetReg8(CpuInterface::BL, 4);       // 1.44MB floppy
+                cpu->SetReg16(CpuInterface::ES, 0xf000); // Disk Base Table, empty currently
+                cpu->SetReg16(CpuInterface::DI, 0x0000);
+            }
 
-            cpu->SetReg16(CpuInterface::ES, 0xf000); // Disk Base Table, empty currently
-            cpu->SetReg16(CpuInterface::DI, 0x0000);
+            cpu->SetReg8(CpuInterface::CH, driveInfo.nCylinders - 1); // max cylinder
+            cpu->SetReg8(CpuInterface::CL, driveInfo.nSectors);       // sectors per track
+            cpu->SetReg8(CpuInterface::DH, driveInfo.nHeads - 1);     // max head
 
+            int driveCnt = 0;
+
+            for(auto const& it: m_driveInfo)
+            {
+                if (it.second.isFloppy == driveInfo.isFloppy)
+                {
+                    driveCnt++;
+                }
+            }
+
+            printf("Bios::Int13h() function 0x%02x drive 0x%2x cyls %d heads %d sectors %d ndrives %d\n",
+                func, drive, driveInfo.nCylinders, driveInfo.nHeads, driveInfo.nSectors, driveCnt);
+
+            cpu->SetReg8(CpuInterface::DL, driveCnt); // number of floppies / hard disk
             cpu->SetReg8(CpuInterface::AH, 0);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x15:
+        {
+            int drive = cpu->GetReg8(CpuInterface::DL);
+
+            if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
+            {
+                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found\n", func, drive);
+
+                cpu->SetReg8(CpuInterface::AH, 0);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            DriveInfo& driveInfo = m_driveInfo[drive];
+
+            if (driveInfo.isFloppy)
+            {
+                cpu->SetReg8(CpuInterface::AH, 1);
+            }
+            else
+            {
+                uint32_t nTotalSectors = driveInfo.nCylinders * driveInfo.nHeads * driveInfo.nSectors;
+
+                cpu->SetReg16(CpuInterface::CX, nTotalSectors >> 16);
+                cpu->SetReg16(CpuInterface::DX, nTotalSectors & 0xffff);
+            }
+
             cpu->SetFlag(CpuInterface::CF, false);
             break;
         }
@@ -610,63 +665,68 @@ bool Bios::HasKey()
 
 bool Bios::LoadMBR(int drive)
 {
-    if (drive >= m_maxDrives)
+    if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
     {
         return false;
     }
 
     int fd = m_driveInfo[drive].fd;
 
+    ::lseek(fd, 0, SEEK_SET);
+    int bytesRead = ::read(fd, m_memory + 0x7c00, 512) == 512;
+
+    return bytesRead > 0;
+}
+
+bool Bios::OpenDrive(int drive, const std::string &fileName, int nCylinders, int nHeads, int nSectors)
+{
+    // Open drive image
+    int fd = ::open(fileName.c_str(), O_RDWR | O_BINARY);
+
     if (fd < 0)
     {
         return false;
     }
 
-    ::lseek(fd, 0, SEEK_SET);
+    // Close current drive image file if exists
+    if (m_driveInfo.find(drive) != m_driveInfo.end() && m_driveInfo[drive].fd != -1)
+    {
+        ::close(m_driveInfo[drive].fd);
+    }
 
-    return ::read(fd, m_memory + 0x7c00, 512) == 512;
+    // Create / update new drive info
+    m_driveInfo[drive] = {
+        .fd = fd,
+        .nHeads = nHeads,
+        .nSectors = nSectors,
+        .nCylinders = nCylinders,
+        .isFloppy = drive < 0x80
+    };
+
+    return true;
 }
 
-bool Bios::OpenDrive(int drive, const std::string &fileName)
+bool Bios::OpenFloppyDrive(int drive, const std::string &fileName)
 {
-    if (drive >= m_maxDrives)
+    if (drive >= 0x80)
+    {
         return false;
-
-    DriveInfo &driveInfo = m_driveInfo[drive];
-    int &fd = driveInfo.fd;
-
-    if (fd != -1)
-    {
-        ::close(fd);
     }
 
-    fd = ::open(fileName.c_str(), O_RDONLY | O_BINARY);
-
-    if (fd != -1)
-    {
-        if (drive < 0x80)
-        {
-            driveInfo.nHeads = 2;
-            driveInfo.nSectors = 18;
-        }
-
-        return true;
-    }
-
-    return false;
+    return OpenDrive(drive, fileName, 80, 2, 18);
 }
 
 void Bios::CloseDrive(int drive)
 {
-    if (drive >= m_maxDrives)
-        return;
-
-    int &fd = m_driveInfo[drive].fd;
-
-    if (fd != -1)
+    if (m_driveInfo.find(drive) != m_driveInfo.end())
     {
-        ::close(fd);
-        fd = -1;
+        int& fd = m_driveInfo[drive].fd;
+
+        if (fd != -1)
+        {
+            ::close(fd);
+            fd = -1;
+        }
     }
 }
 
@@ -780,4 +840,90 @@ void Bios::ProcessKeys()
             m_processedKeys.push(retCode);
         }
     }
+}
+
+void Bios::SetCursorPos(uint8_t x, uint8_t y)
+{
+    m_cursorX = x;
+    m_cursorY = y;
+    m_memory[0x450] = x;
+    m_memory[0x451] = y;
+    m_vga.SetCursorPos(x, y);
+}
+
+void Bios::ScrollWindow(int x1, int y1, int x2, int y2, int nLines, uint8_t attr)
+{
+    if (x1 > x2 || y1 > y2)
+    {
+        return;
+    }
+
+    auto clamp = [](int val, int max) {
+        if (val < 0)
+        {
+            return 0;
+        }
+        else if (val > max)
+        {
+            return max;
+        }
+
+        return val;
+    };
+
+    x1 = clamp(x1, 79);
+    x2 = clamp(x2, 79);
+    y1 = clamp(y1, 24);
+    y2 = clamp(y2, 24);
+
+    int height = y2 - y1 + 1;
+
+    if (nLines >= height || nLines == 0)
+    {
+        // Clear window
+        for(int y = y1; y <= y2; y++)
+        {
+            for(int x = x1; x <= x2; x++)
+            {
+                uint32_t addr = 0x18000 + y * 160 + x * 2;
+                m_vga.MemWrite(addr, 32);
+                m_vga.MemWrite(addr + 1, attr);
+            }
+        }
+    }
+    else
+    {
+        uint32_t lineOffset = nLines * 160;
+
+        // Scroll window up
+        for(int y = y1; y <= (24 - nLines); y++)
+        {
+            for(int x = x1; x <= x2; x++)
+            {
+                uint32_t addr = 0x18000 + y * 160 + 2 * x;
+
+                m_vga.MemWrite(addr, m_vga.MemRead(addr + lineOffset));
+                m_vga.MemWrite(addr + 1, m_vga.MemRead(addr + lineOffset + 1));
+            }
+        }
+
+        // Clear last line
+        for(int y = (24 - nLines + 1); y <= y2; y++)
+        {
+            for(int x = x1; x <= x2; x++)
+            {
+                uint32_t addr = 0x18000 + y * 160 + x * 2;
+                m_vga.MemWrite(addr, 32);
+                m_vga.MemWrite(addr + 1, attr);
+            }
+        }
+    }
+}
+
+uint32_t Bios::CHStoLBA(const DriveInfo& driveInfo, uint32_t cylReg,  uint32_t head, uint32_t cylSectorReg)
+{
+    uint32_t cyl    = cylReg + ((cylSectorReg & 0xc0) << 2);
+    uint32_t sector = cylSectorReg & 0x3f;
+
+    return (cyl * driveInfo.nHeads + head) * driveInfo.nSectors + sector - 1;
 }

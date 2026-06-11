@@ -275,7 +275,7 @@ inline uint32_t Cpu::Load32(std::size_t linearAddr)
 
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-    if (linearAddr >= 0x400 && linearAddr < 0x500 )
+    if ((linearAddr >= 0x400 && linearAddr < 0x500) /*|| linearAddr >= 0xc0000*/)
     {
         if (linearAddr != 0x471 && linearAddr != 0x46c)
         {
@@ -297,10 +297,13 @@ inline uint16_t Cpu::Load16(std::size_t linearAddr)
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-    if (linearAddr >= 0x400 && linearAddr < 0x500 && linearAddr != 0x471)
+    if ((linearAddr >= 0x400 && linearAddr < 0x500) /*|| linearAddr >= 0xc0000*/)
     {
-        printf("load %08lx val 0x%02x\n",
-            linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+        if (linearAddr != 0x471 && linearAddr != 0x46c)
+        {
+            printf("load %08lx val 0x%02x\n",
+                linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
+        }
     }
 
     if ((linearAddr & 0xfe0000) == 0xa0000)

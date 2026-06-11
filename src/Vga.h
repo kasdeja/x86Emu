@@ -73,6 +73,7 @@ private:
     uint8_t     m_cursorY;
     uint8_t     m_cursorStart;
     uint8_t     m_cursorEnd;
+    uint32_t    m_cursorBlinkCnt;
 
     uint16_t    m_colorMapReadIdx;
     uint16_t    m_colorMapWriteIdx;

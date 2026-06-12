@@ -70,6 +70,10 @@ int main(int argc, char **argv)
             {
                 bios->Int16h(cpu);
             }
+            else if (intNo == 0x17)
+            {
+                // Do nothing
+            }
             else if (intNo == 0x1a)
             {
                 bios->Int1Ah(cpu);
@@ -96,7 +100,7 @@ int main(int argc, char **argv)
                 case 0x60:
                     {
                         uint8_t key = keyboard->GetKey();
-                        printf("onPortRead() got key %02x\n", key);
+                        //printf("onPortRead() got key %02x\n", key);
                         return key;
                     }
 
@@ -132,7 +136,7 @@ int main(int argc, char **argv)
                     break;
 
                 case 0x68:
-                    printf("onPortWrite() got write on pseudoport 0x68\n");
+                    //printf("onPortWrite() got write on pseudoport 0x68\n");
                     if (keyboard->HasKey())
                     {
                         bios->AddKey(keyboard->GetKey());
@@ -179,9 +183,43 @@ int main(int argc, char **argv)
 
     cpu->SetReg16(CpuInterface::IP, 0x7c00);
 
-    bios->OpenFloppyDrive(0, "freedos/x86BOOT.img");
+    std::vector<std::string> diskList = {
+        "freedos/x86BOOT.img",
+        "freedos/x86DSK01.img",
+        "freedos/x86DSK02.img",
+        "freedos/x86DSK03.img",
+        "freedos/x86DSK04.img",
+        "freedos/x86DSK05.img",
+        "freedos/x86DSK06.img"
+    };
+
+    int diskIdx = 0;
+
+    bios->OpenFloppyDrive(0, diskList[0]);
+    //bios->OpenFloppyDrive(0, "freedos/msdos3.31-1.44m.img");
+    //bios->OpenFloppyDrive(0, "freedos/msdos6.22-1.44m.img");
+    //bios->OpenFloppyDrive(1, diskList[6]);
     bios->OpenDrive(0x80, "freedos/HD.img", 128, 16, 63);
-    bios->LoadMBR(0);
+    //bios->LoadMBR(0);
+    bios->LoadMBR(0x80);
+
+    sdl->onKeyEvent = [keyboard, bios, &diskIdx, &diskList](uint8_t scancode) {
+        if (scancode == 0x58) // F12, change floppy disk
+        {
+            diskIdx++;
+            if (diskIdx >= diskList.size())
+            {
+                diskIdx = 0;
+            }
+
+            printf("floppy disk image %s\n", diskList[diskIdx].c_str());
+            bios->OpenFloppyDrive(0, diskList[diskIdx]);
+        }
+        else
+        {
+            keyboard->AddKey(scancode);
+        }
+    };
 
     auto runEmulator =
         [cpu, pic, pit, keyboard](int64_t usec, int64_t instructionsPerSecond) -> bool
@@ -218,7 +256,6 @@ int main(int argc, char **argv)
 
     if (sdl->Initialize())
     {
-        sdl->onKeyEvent = [keyboard](uint8_t scancode) { keyboard->AddKey(scancode); };
         running = true;
 
         thread = std::thread(
@@ -227,7 +264,7 @@ int main(int argc, char **argv)
                 printf("Running...\n");
                 while(running)
                 {
-                    if (!runEmulator(5000, 4000000))
+                    if (!runEmulator(5000, 16000000))
                     {
                         sdl->StopMainLoop();
                         break;

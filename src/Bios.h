@@ -45,6 +45,7 @@ private:
         int nSectors;
         int nCylinders;
         bool isFloppy;
+        bool changed;
     };
 
     uint8_t* m_memory;

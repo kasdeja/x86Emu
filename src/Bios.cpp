@@ -395,14 +395,16 @@ void Bios::Int13h(CpuInterface* cpu)
         case 0x00: // Reset Disk System
         {
             int drive = cpu->GetReg8(CpuInterface::DL);
+            printf("Bios::Int13h() function 0x%02x drive %02x (reset disk system)\n", func, drive);
 
-            if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
+            if (m_driveInfo.find(drive) == m_driveInfo.end())
             {
-                cpu->SetReg16(CpuInterface::AX, 0x0c00);
+                cpu->SetReg8(CpuInterface::AH, 0x0c);
                 cpu->SetFlag(CpuInterface::CF, true);
             }
             else
             {
+                cpu->SetReg8(CpuInterface::AH, 0x00);
                 cpu->SetFlag(CpuInterface::CF, false);
             }
 
@@ -416,7 +418,7 @@ void Bios::Int13h(CpuInterface* cpu)
 
             if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
             {
-                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found\n", func, drive);
+                printf("Bios::Int13h() function 0x%02x drive 0x%02x not found\n", func, drive);
 
                 cpu->SetReg16(CpuInterface::AX, 0x0c00);
                 cpu->SetFlag(CpuInterface::CF, true);
@@ -424,6 +426,8 @@ void Bios::Int13h(CpuInterface* cpu)
             }
 
             DriveInfo& driveInfo = m_driveInfo[drive];
+
+            driveInfo.changed = false;
 
             int      fd        = driveInfo.fd;
             uint32_t bytes     = cpu->GetReg8(CpuInterface::AL) * 512;
@@ -441,15 +445,15 @@ void Bios::Int13h(CpuInterface* cpu)
             {
                 uint32_t bytesRead = ::read(fd, dstBuffer, bytes);
 
-                printf("Bios::Int13h() function 0x%02x lba %d\n", func, lba);
-                printf("Bios::Int13h() function 0x%02x read %d bytes from fd %d (requested %d)\n", func, bytesRead, fd, bytes);
+                printf("Bios::Int13h() function 0x%02x drive %02x lba %d read %d bytes from fd %d (requested %d)\n",
+                    func, drive, lba, bytesRead, fd, bytes);
             }
             else if (func == 0x03)
             {
                 uint32_t bytesWrite = ::write(fd, dstBuffer, bytes);
 
-                printf("Bios::Int13h() function 0x%02x lba %d\n", func, lba);
-                printf("Bios::Int13h() function 0x%02x write %d bytes from fd %d (requested %d)\n", func, bytesWrite, fd, bytes);
+                printf("Bios::Int13h() function 0x%02x drive %02x lba %d read %d bytes from fd %d (requested %d)\n",
+                    func, drive, lba, bytesWrite, fd, bytes);
             }
 
             cpu->SetReg8(CpuInterface::AH, 0);
@@ -498,7 +502,7 @@ void Bios::Int13h(CpuInterface* cpu)
                 }
             }
 
-            printf("Bios::Int13h() function 0x%02x drive 0x%2x cyls %d heads %d sectors %d ndrives %d\n",
+            printf("Bios::Int13h() function 0x%02x drive 0x%02x cyls %d heads %d sectors %d ndrives %d\n",
                 func, drive, driveInfo.nCylinders, driveInfo.nHeads, driveInfo.nSectors, driveCnt);
 
             cpu->SetReg8(CpuInterface::DL, driveCnt); // number of floppies / hard disk
@@ -507,9 +511,11 @@ void Bios::Int13h(CpuInterface* cpu)
             break;
         }
 
-        case 0x15:
+        case 0x15: // Read Drive Type
         {
             int drive = cpu->GetReg8(CpuInterface::DL);
+
+            printf("Bios::Int13h() function 0x%02x drive %02x - read drive type\n", func, drive);
 
             if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
             {
@@ -524,17 +530,50 @@ void Bios::Int13h(CpuInterface* cpu)
 
             if (driveInfo.isFloppy)
             {
-                cpu->SetReg8(CpuInterface::AH, 1);
+                cpu->SetReg8(CpuInterface::AH, 2); // change detection present, allows swapping floppies in FreeDos
             }
             else
             {
                 uint32_t nTotalSectors = driveInfo.nCylinders * driveInfo.nHeads * driveInfo.nSectors;
 
+                cpu->SetReg8(CpuInterface::AH, 3);
                 cpu->SetReg16(CpuInterface::CX, nTotalSectors >> 16);
                 cpu->SetReg16(CpuInterface::DX, nTotalSectors & 0xffff);
             }
 
             cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x16: // Change of Disk Status
+        {
+            int drive = cpu->GetReg8(CpuInterface::DL);
+
+            printf("Bios::Int13h() function 0x%02x drive %02x - change of disk status\n", func, drive);
+
+            if (m_driveInfo.find(drive) == m_driveInfo.end() || m_driveInfo[drive].fd == -1)
+            {
+                printf("Bios::Int13h() function 0x%02x drive 0x%2x not found\n", func, drive);
+
+                cpu->SetReg8(CpuInterface::AH, 0);
+                cpu->SetFlag(CpuInterface::CF, true);
+                break;
+            }
+
+            DriveInfo& driveInfo = m_driveInfo[drive];
+
+            if (driveInfo.isFloppy && driveInfo.changed)
+            {
+                printf("Bios::Int13h() function 0x%02x drive %02x changed / removed\n", func, drive);
+                cpu->SetReg8(CpuInterface::AH, 6);
+                cpu->SetFlag(CpuInterface::CF, true);
+            }
+            else
+            {
+                cpu->SetReg8(CpuInterface::AH, 0);
+                cpu->SetFlag(CpuInterface::CF, false);
+            }
+
             break;
         }
 
@@ -567,7 +606,7 @@ void Bios::Int16h(CpuInterface* cpu)
                 uint16_t key = m_processedKeys.front();
                 m_processedKeys.pop();
 
-                printf("Bios::Int16h() function 0x%02x read key 0x%2x\n", func, key);
+                //printf("Bios::Int16h() function 0x%02x read key 0x%2x\n", func, key);
                 cpu->SetReg16(CpuInterface::AX, key);
             }
             else
@@ -585,7 +624,7 @@ void Bios::Int16h(CpuInterface* cpu)
             {
                 uint16_t key = m_processedKeys.front();
 
-                printf("Bios::Int16h() function 0x%02x get key 0x%2x\n", func, key);
+                //printf("Bios::Int16h() function 0x%02x get key 0x%2x\n", func, key);
                 cpu->SetReg16(CpuInterface::AX, key);
                 cpu->SetFlag(CpuInterface::ZF, false);
             }
@@ -680,6 +719,8 @@ bool Bios::LoadMBR(int drive)
 
 bool Bios::OpenDrive(int drive, const std::string &fileName, int nCylinders, int nHeads, int nSectors)
 {
+    bool changed = false;
+
     // Open drive image
     int fd = ::open(fileName.c_str(), O_RDWR | O_BINARY);
 
@@ -691,6 +732,7 @@ bool Bios::OpenDrive(int drive, const std::string &fileName, int nCylinders, int
     // Close current drive image file if exists
     if (m_driveInfo.find(drive) != m_driveInfo.end() && m_driveInfo[drive].fd != -1)
     {
+        changed = true;
         ::close(m_driveInfo[drive].fd);
     }
 
@@ -700,7 +742,8 @@ bool Bios::OpenDrive(int drive, const std::string &fileName, int nCylinders, int
         .nHeads = nHeads,
         .nSectors = nSectors,
         .nCylinders = nCylinders,
-        .isFloppy = drive < 0x80
+        .isFloppy = drive < 0x80,
+        .changed = changed
     };
 
     return true;
@@ -713,6 +756,7 @@ bool Bios::OpenFloppyDrive(int drive, const std::string &fileName)
         return false;
     }
 
+    printf("Bios::OpenFloppyDrive() Opening %s file...\n", fileName.c_str());
     return OpenDrive(drive, fileName, 80, 2, 18);
 }
 
@@ -724,6 +768,7 @@ void Bios::CloseDrive(int drive)
 
         if (fd != -1)
         {
+            m_driveInfo[drive].changed = true;
             ::close(fd);
             fd = -1;
         }
@@ -741,7 +786,7 @@ void Bios::ProcessKeys()
         if (HasKey())
         {
             key = GetKey();
-            printf("Bios::ProcessKeys() scancode %2x\n", key);
+            //printf("Bios::ProcessKeys() scancode %2x\n", key);
             m_scanCode = (m_scanCode << 8) | key;
 
             if (key == 0xe0)
@@ -762,37 +807,37 @@ void Bios::ProcessKeys()
         if (scanCode == 0x1d || scanCode == 0xe01d)
         {
             m_ctrlPressed = !released;
-            printf("Bios::ProcessKeys() ctrl pressed = %d\n", m_ctrlPressed);
+            //printf("Bios::ProcessKeys() ctrl pressed = %d\n", m_ctrlPressed);
             continue;
         }
         else if (scanCode == 0x2a || scanCode == 0x36)
         {
             m_shiftPressed = !released;
-            printf("Bios::ProcessKeys() shift pressed = %d\n", m_shiftPressed);
+            //printf("Bios::ProcessKeys() shift pressed = %d\n", m_shiftPressed);
             continue;
         }
         else if (scanCode == 0x38 || scanCode == 0xe038)
         {
             m_altPressed = !released;
-            printf("Bios::ProcessKeys() alt pressed = %d\n", m_altPressed);
+            //printf("Bios::ProcessKeys() alt pressed = %d\n", m_altPressed);
             continue;
         }
         else if (scanCode == 0x3a)
         {
             m_capsPressed = !released;
-            printf("Bios::ProcessKeys() caps pressed = %d\n", m_capsPressed);
+            //printf("Bios::ProcessKeys() caps pressed = %d\n", m_capsPressed);
             continue;
         }
 
         if (released)
         {
-            printf("Bios::ProcessKeys() key released\n");
+            //printf("Bios::ProcessKeys() key released\n");
             continue;
         }
 
         if ((scanCode >> 8) == 0xe0)
         {
-            printf("Bios::ProcessKeys() extended code - omitting\n");
+            //printf("Bios::ProcessKeys() extended code - omitting\n");
             continue;
         }
 
@@ -821,7 +866,7 @@ void Bios::ProcessKeys()
             }
         }
 
-        printf("Bios::ProcessKeys() scancode %04x idx %d\n", scanCode, idx);
+        //printf("Bios::ProcessKeys() scancode %04x idx %d\n", scanCode, idx);
 
         if (idx >= 80)
         {
@@ -829,7 +874,7 @@ void Bios::ProcessKeys()
         }
 
         retCode = s_biosKeyMapping[idx][column];
-        printf("Bios::ProcessKeys() retcode %04x\n", retCode);
+        //printf("Bios::ProcessKeys() retcode %04x\n", retCode);
 
         if (retCode == 0xffff)
         {

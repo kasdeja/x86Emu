@@ -128,6 +128,7 @@ private:
     int         m_result;
     int         m_auxbits;
 
+    std::size_t m_disasmCnt;
     std::size_t m_instructionCnt;
     Memory&     m_rMemory;
 

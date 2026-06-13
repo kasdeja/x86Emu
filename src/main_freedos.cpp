@@ -23,7 +23,8 @@ int main(int argc, char **argv)
     // Initialize emulator
     Memory*       memory     = new Memory(4096);
     Vga*          vga        = new Vga(*memory);
-    MemoryView*   memoryView = nullptr; // new MemoryView(memory, vga);
+    MemoryView*   memoryView = nullptr;
+    //MemoryView*   memoryView = new MemoryView(memory, vga);
     Bios*         bios       = new Bios(*memory, *vga);
     CpuInterface* cpu        = new Cpu(*memory);
     Pic*          pic        = new Pic(*cpu);
@@ -199,7 +200,8 @@ int main(int argc, char **argv)
     //bios->OpenFloppyDrive(0, "freedos/msdos3.31-1.44m.img");
     //bios->OpenFloppyDrive(0, "freedos/msdos6.22-1.44m.img");
     //bios->OpenFloppyDrive(1, diskList[6]);
-    bios->OpenDrive(0x80, "freedos/HD.img", 128, 16, 63);
+    //bios->OpenDrive(0x80, "freedos/HD.img", 128, 16, 63);
+    bios->OpenDrive(0x80, "freedos/HD2.img", 128, 16, 63);
     //bios->LoadMBR(0);
     bios->LoadMBR(0x80);
 

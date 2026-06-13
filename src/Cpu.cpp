@@ -279,7 +279,7 @@ inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
     if (linearAddr >= 0x400 && linearAddr <= 0x500)
     {
-        if (linearAddr != 0x46c && linearAddr != 0x471)
+        if (linearAddr != 0x46c && linearAddr != 0x471 && linearAddr != 0x46e)
         {
             printf("load %08lx val 0x%04x\n",
                 linearAddr, *reinterpret_cast<uint16_t *>(m_memory + linearAddr));
@@ -301,7 +301,8 @@ inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
     if (linearAddr >= 0x400 && linearAddr <= 0x500)
     {
-        if (linearAddr != 0x46c && linearAddr != 0x471)
+        if (linearAddr != 0x46c && linearAddr != 0x471 && linearAddr != 0x44a && linearAddr != 0x484 &&
+            /*linearAddr != 0x450 && linearAddr != 0x451 &&*/ linearAddr != 0x46e)
         {
             printf("load %08lx val 0x%02x\n",
                 linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
@@ -1454,6 +1455,7 @@ void Cpu::HandleREP(uint8_t opcode)
     }
     else
     {
+        printf("Invalid sub opcode 0x%02x\n", opcode);
         // ac rep lodsb
         // ad rep lodsw
         m_state |= State::InvalidOp;

@@ -17,7 +17,7 @@ const uint16_t s_biosKeyMapping[80][4] = {
 //    Normal  Shifted w/Ctrl  w/Alt
     { 0x1E61, 0x1E41, 0x1E01, 0x1E00 },
     { 0x3062, 0x3042, 0x3002, 0x3000 },
-    { 0x2E63, 0x2E42, 0x2E03, 0x2E00 },
+    { 0x2E63, 0x2E43, 0x2E03, 0x2E00 },
     { 0x2064, 0x2044, 0x2004, 0x2000 },
     { 0x1265, 0x1245, 0x1205, 0x1200 },
     { 0x2166, 0x2146, 0x2106, 0x2100 },
@@ -165,6 +165,7 @@ void Bios::Int10h(CpuInterface* cpu)
             uint8_t row  = cpu->GetReg8(CpuInterface::DH);
             uint8_t col  = cpu->GetReg8(CpuInterface::DL);
 
+            printf("Bios::Int10h() function 0x%02x - set cursor pos %d, %d\n", func, col, row);
             SetCursorPos(col, row);
             break;
         }
@@ -216,6 +217,8 @@ void Bios::Int10h(CpuInterface* cpu)
         {
             char ch = cpu->GetReg8(CpuInterface::AL);
 
+            //printf("Bios::Int10h() function 0x%02x - write %02x\n", func, ch);
+
             if (ch == 0x07)
             {
                 // do nothing
@@ -255,7 +258,7 @@ void Bios::Int10h(CpuInterface* cpu)
                 ScrollWindow(0, 0, 79, 24, 1, 7);
             }
 
-            m_vga.SetCursorPos(m_cursorX, m_cursorY);
+            SetCursorPos(m_cursorX, m_cursorY);
             break;
         }
 
@@ -606,7 +609,7 @@ void Bios::Int16h(CpuInterface* cpu)
                 uint16_t key = m_processedKeys.front();
                 m_processedKeys.pop();
 
-                //printf("Bios::Int16h() function 0x%02x read key 0x%2x\n", func, key);
+                printf("Bios::Int16h() function 0x%02x read key 0x%2x\n", func, key);
                 cpu->SetReg16(CpuInterface::AX, key);
             }
             else
@@ -624,7 +627,7 @@ void Bios::Int16h(CpuInterface* cpu)
             {
                 uint16_t key = m_processedKeys.front();
 
-                //printf("Bios::Int16h() function 0x%02x get key 0x%2x\n", func, key);
+                printf("Bios::Int16h() function 0x%02x get key 0x%2x\n", func, key);
                 cpu->SetReg16(CpuInterface::AX, key);
                 cpu->SetFlag(CpuInterface::ZF, false);
             }
@@ -634,6 +637,20 @@ void Bios::Int16h(CpuInterface* cpu)
                 cpu->SetReg16(CpuInterface::AX, 0); // no scancode
                 cpu->SetFlag(CpuInterface::ZF, true);
             }
+            break;
+        }
+
+        case 0x02:
+        {
+            uint8_t keyStatus = 0;
+
+            keyStatus |= m_shiftPressed << 1;
+            keyStatus |= m_ctrlPressed << 2;
+            keyStatus |= m_altPressed << 3;
+            keyStatus |= m_capsPressed << 6;
+
+            //printf("Bios::Int16h() function 0x%02x key status %02x\n", func, keyStatus);
+            cpu->SetReg8(CpuInterface::AL, keyStatus);
             break;
         }
 
@@ -786,7 +803,7 @@ void Bios::ProcessKeys()
         if (HasKey())
         {
             key = GetKey();
-            //printf("Bios::ProcessKeys() scancode %2x\n", key);
+            printf("Bios::ProcessKeys() scancode %2x\n", key);
             m_scanCode = (m_scanCode << 8) | key;
 
             if (key == 0xe0)
@@ -807,38 +824,38 @@ void Bios::ProcessKeys()
         if (scanCode == 0x1d || scanCode == 0xe01d)
         {
             m_ctrlPressed = !released;
-            //printf("Bios::ProcessKeys() ctrl pressed = %d\n", m_ctrlPressed);
+            printf("Bios::ProcessKeys() ctrl pressed = %d\n", m_ctrlPressed);
             continue;
         }
         else if (scanCode == 0x2a || scanCode == 0x36)
         {
             m_shiftPressed = !released;
-            //printf("Bios::ProcessKeys() shift pressed = %d\n", m_shiftPressed);
+            printf("Bios::ProcessKeys() shift pressed = %d\n", m_shiftPressed);
             continue;
         }
         else if (scanCode == 0x38 || scanCode == 0xe038)
         {
             m_altPressed = !released;
-            //printf("Bios::ProcessKeys() alt pressed = %d\n", m_altPressed);
+            printf("Bios::ProcessKeys() alt pressed = %d\n", m_altPressed);
             continue;
         }
         else if (scanCode == 0x3a)
         {
             m_capsPressed = !released;
-            //printf("Bios::ProcessKeys() caps pressed = %d\n", m_capsPressed);
+            printf("Bios::ProcessKeys() caps pressed = %d\n", m_capsPressed);
             continue;
         }
 
         if (released)
         {
-            //printf("Bios::ProcessKeys() key released\n");
+            printf("Bios::ProcessKeys() key released\n");
             continue;
         }
 
         if ((scanCode >> 8) == 0xe0)
         {
-            //printf("Bios::ProcessKeys() extended code - omitting\n");
-            continue;
+            printf("Bios::ProcessKeys() extended code %04x - omitting\n", scanCode);
+            //continue;
         }
 
         if (m_capsPressed ^ m_shiftPressed)
@@ -860,13 +877,13 @@ void Bios::ProcessKeys()
 
         for(idx = 0; idx < 80; idx++)
         {
-            if ((s_biosKeyMapping[idx][0] >> 8) == scanCode)
+            if ((s_biosKeyMapping[idx][0] >> 8) == (scanCode & 0xff))
             {
                 break;
             }
         }
 
-        //printf("Bios::ProcessKeys() scancode %04x idx %d\n", scanCode, idx);
+        printf("Bios::ProcessKeys() scancode %04x idx %d\n", scanCode, idx);
 
         if (idx >= 80)
         {
@@ -874,7 +891,7 @@ void Bios::ProcessKeys()
         }
 
         retCode = s_biosKeyMapping[idx][column];
-        //printf("Bios::ProcessKeys() retcode %04x\n", retCode);
+        printf("Bios::ProcessKeys() retcode %04x\n", retCode);
 
         if (retCode == 0xffff)
         {

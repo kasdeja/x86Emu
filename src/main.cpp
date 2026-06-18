@@ -139,7 +139,6 @@ int main(int argc, char **argv)
             }
             else if (intNo == 0x15)
             {
-                // Do nothing
             }
             else if (intNo == 0x16)
             {

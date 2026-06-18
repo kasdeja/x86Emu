@@ -24,6 +24,7 @@ public:
     void Int11h(CpuInterface *cpu);
     void Int12h(CpuInterface *cpu);
     void Int13h(CpuInterface *cpu);
+    void Int15h(CpuInterface *cpu);
     void Int16h(CpuInterface *cpu);
     void Int1Ah(CpuInterface *cpu);
 
@@ -49,6 +50,7 @@ private:
     };
 
     uint8_t* m_memory;
+    uint32_t m_memorySize;
     Vga&     m_vga;
 
     uint8_t m_cursorX;

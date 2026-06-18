@@ -277,7 +277,7 @@ inline uint32_t Cpu::Load32(std::size_t linearAddr)
 
 inline uint16_t Cpu::Load16(std::size_t linearAddr)
 {
-    if (linearAddr >= 0x400 && linearAddr <= 0x500)
+    if (linearAddr >= 0x400 && linearAddr <= 0x500 && linearAddr >= 0xc000)
     {
         if (linearAddr != 0x46c && linearAddr != 0x471 && linearAddr != 0x46e)
         {
@@ -299,10 +299,10 @@ inline uint16_t Cpu::Load16(std::size_t linearAddr)
 
 inline uint8_t Cpu::Load8(std::size_t linearAddr)
 {
-    if (linearAddr >= 0x400 && linearAddr <= 0x500)
+    if (linearAddr >= 0x400 && linearAddr <= 0x500 && linearAddr >= 0xc000)
     {
         if (linearAddr != 0x46c && linearAddr != 0x471 && linearAddr != 0x44a && linearAddr != 0x484 &&
-            /*linearAddr != 0x450 && linearAddr != 0x451 &&*/ linearAddr != 0x46e)
+            linearAddr != 0x450 && linearAddr != 0x451 && linearAddr != 0x46e)
         {
             printf("load %08lx val 0x%02x\n",
                 linearAddr, *reinterpret_cast<uint8_t *>(m_memory + linearAddr));
@@ -1128,31 +1128,31 @@ void Cpu::HandleREPNE(uint8_t opcode)
     std::size_t esBase = m_register[Register::ES] * 16;
     short       delta  = (m_register[Register::FLAG] & Flag::DF_mask) ? -1 : 1;
 
-    if (opcode == 0xa4) // repne movsb - undocumented, shall work as rep movsb
-    {
-        while(m_register[Register::CX] > 0)
-        {
-            Store8(esBase + m_register[Register::DI], Load8(dsBase + m_register[Register::SI]));
-
-            m_register[Register::SI] += delta;
-            m_register[Register::DI] += delta;
-            m_register[Register::CX]--;
-        }
-    }
-    else if (opcode == 0xa5) // repne movsw - undocumented, shall work as rep movsw
-    {
-        delta <<= 1;
-
-        while(m_register[Register::CX] > 0)
-        {
-            Store16(esBase + m_register[Register::DI], Load16(dsBase + m_register[Register::SI]));
-
-            m_register[Register::SI] += delta;
-            m_register[Register::DI] += delta;
-            m_register[Register::CX]--;
-        }
-    }
-    else if (opcode == 0xa6) // repne cmpsb
+    // if (opcode == 0xa4) // repne movsb - undocumented, shall work as rep movsb
+    // {
+    //     while(m_register[Register::CX] > 0)
+    //     {
+    //         Store8(esBase + m_register[Register::DI], Load8(dsBase + m_register[Register::SI]));
+    //
+    //         m_register[Register::SI] += delta;
+    //         m_register[Register::DI] += delta;
+    //         m_register[Register::CX]--;
+    //     }
+    // }
+    // else if (opcode == 0xa5) // repne movsw - undocumented, shall work as rep movsw
+    // {
+    //     delta <<= 1;
+    //
+    //     while(m_register[Register::CX] > 0)
+    //     {
+    //         Store16(esBase + m_register[Register::DI], Load16(dsBase + m_register[Register::SI]));
+    //
+    //         m_register[Register::SI] += delta;
+    //         m_register[Register::DI] += delta;
+    //         m_register[Register::CX]--;
+    //     }
+    // }
+    /*else*/ if (opcode == 0xa6) // repne cmpsb
     {
         uint8_t op1, op2, diff;
 
@@ -1194,32 +1194,32 @@ void Cpu::HandleREPNE(uint8_t opcode)
 
         SetSubFlags16(op1, op2, diff);
     }
-    else if (opcode == 0xaa) // repne stosb - undocumented, shall work as rep stosb
-    {
-        uint8_t byte = m_register[Register::AX];
-
-        while(m_register[Register::CX] > 0)
-        {
-            Store8(esBase + m_register[Register::DI], byte);
-
-            m_register[Register::DI] += delta;
-            m_register[Register::CX]--;
-        }
-    }
-    else if (opcode == 0xab) /// repne stosw - undocumented, shall work as rep stosw
-    {
-        uint16_t word = m_register[Register::AX];
-
-        delta <<= 1;
-
-        while(m_register[Register::CX] > 0)
-        {
-            Store16(esBase + m_register[Register::DI], word);
-
-            m_register[Register::DI] += delta;
-            m_register[Register::CX]--;
-        }
-    }
+    // else if (opcode == 0xaa) // repne stosb - undocumented, shall work as rep stosb
+    // {
+    //     uint8_t byte = m_register[Register::AX];
+    //
+    //     while(m_register[Register::CX] > 0)
+    //     {
+    //         Store8(esBase + m_register[Register::DI], byte);
+    //
+    //         m_register[Register::DI] += delta;
+    //         m_register[Register::CX]--;
+    //     }
+    // }
+    // else if (opcode == 0xab) /// repne stosw - undocumented, shall work as rep stosw
+    // {
+    //     uint16_t word = m_register[Register::AX];
+    //
+    //     delta <<= 1;
+    //
+    //     while(m_register[Register::CX] > 0)
+    //     {
+    //         Store16(esBase + m_register[Register::DI], word);
+    //
+    //         m_register[Register::DI] += delta;
+    //         m_register[Register::CX]--;
+    //     }
+    // }
     else if (opcode == 0xae) // repne scasb
     {
         uint8_t op1 = m_register[Register::AX] & 0xff;
@@ -2466,26 +2466,36 @@ void Cpu::ExecuteInstruction()
 
     m_instructionCnt++;
 
+    // if (opcode == 0xcd)
+    // {
+    //     uint8_t func = m_register[Register::AX] >> 8;
+    //     if (*ip == 0x21 && func == 0x48 || func == 0x49)
+    //     {
+    //         m_disasmCnt = 8;
+    //         printf("---\n");
+    //     }
+    // }
+
     // bool disasm = true;
     // if (disasm)
     // if (m_disasmCnt > 0)
     // {
     //     m_disasmCnt--;
-        // printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x ",
-        //     m_register[Register::AX],
-        //     m_register[Register::BX],
-        //     m_register[Register::CX],
-        //     m_register[Register::DX],
-        //     m_register[Register::SI],
-        //     m_register[Register::DI],
-        //     m_register[Register::SP],
-        //     m_register[Register::BP],
-        //     m_register[Register::CS],
-        //     m_register[Register::DS],
-        //     m_register[Register::ES],
-        //     m_register[Register::SS]);
-        //
-        //  printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
+    //     printf("AX %04x BX %04x CX %04x DX %04x SI %04x DI %04x SP %04x BP %04x CS %04x DS %04x ES %04x SS %04x ",
+    //         m_register[Register::AX],
+    //         m_register[Register::BX],
+    //         m_register[Register::CX],
+    //         m_register[Register::DX],
+    //         m_register[Register::SI],
+    //         m_register[Register::DI],
+    //         m_register[Register::SP],
+    //         m_register[Register::BP],
+    //         m_register[Register::CS],
+    //         m_register[Register::DS],
+    //         m_register[Register::ES],
+    //         m_register[Register::SS]);
+    //
+    //      printf("%s\n", Disasm(*this, m_rMemory).Process().c_str());
     // }
 
     switch(opcode)

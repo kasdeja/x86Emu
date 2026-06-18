@@ -100,6 +100,7 @@ const uint16_t s_biosKeyMapping[80][4] = {
 // constructor & destructor
 Bios::Bios(Memory& memory, Vga& vga)
     : m_memory(memory.GetMem())
+    , m_memorySize(memory.GetMemSize())
     , m_vga   (vga)
 {
     // BIOS Data Area
@@ -590,6 +591,42 @@ void Bios::Int13h(CpuInterface* cpu)
 
         default:
             printf("Bios::Int13h() function 0x%02x not implemented yet!\n", func);
+            break;
+    }
+}
+
+void Bios::Int15h(CpuInterface* cpu)
+{
+    uint8_t func = cpu->GetReg8(CpuInterface::AH);
+
+    switch(func)
+    {
+        case 0x87:
+        {
+            uint8_t *req = reinterpret_cast<uint8_t *>(m_memory) + cpu->GetReg16(CpuInterface::ES) * 16 + cpu->GetReg16(CpuInterface::SI);
+
+            uint32_t srcAddr = *reinterpret_cast<uint32_t *>(req + 0x12) & 0xffffff;
+            uint32_t dstAddr = *reinterpret_cast<uint32_t *>(req + 0x1a) & 0xffffff;
+            uint32_t length = cpu->GetReg16(CpuInterface::CX) * 2;
+
+            printf("Bios::Int15h() function 0x%02x move data block, src %06x dst %06x length %d\n", func, srcAddr, dstAddr, length);
+            ::memcpy(m_memory + dstAddr, m_memory + srcAddr, length);
+
+            cpu->SetReg8(CpuInterface::AH, 0);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        case 0x88:
+        {
+            printf("Bios::Int15h() function 0x%02x memory above 1M - %d kb\n", func, m_memorySize / 1024 - 1024);
+            cpu->SetReg16(CpuInterface::AX, m_memorySize / 1024 - 1024);
+            cpu->SetFlag(CpuInterface::CF, false);
+            break;
+        }
+
+        default:
+            printf("Bios::Int15h() function 0x%02x not implemented yet!\n", func);
             break;
     }
 }

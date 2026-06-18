@@ -65,7 +65,7 @@ int main(int argc, char **argv)
             }
             else if (intNo == 0x15)
             {
-                // Do nothing
+                bios->Int15h(cpu);
             }
             else if (intNo == 0x16)
             {
@@ -200,8 +200,8 @@ int main(int argc, char **argv)
     //bios->OpenFloppyDrive(0, "freedos/msdos3.31-1.44m.img");
     //bios->OpenFloppyDrive(0, "freedos/msdos6.22-1.44m.img");
     //bios->OpenFloppyDrive(1, diskList[6]);
-    //bios->OpenDrive(0x80, "freedos/HD.img", 128, 16, 63);
-    bios->OpenDrive(0x80, "freedos/HD2.img", 128, 16, 63);
+    bios->OpenDrive(0x80, "freedos/HD.img", 128, 16, 63);
+    //bios->OpenDrive(0x80, "freedos/HD2.img", 128, 16, 63);
     //bios->LoadMBR(0);
     bios->LoadMBR(0x80);
 

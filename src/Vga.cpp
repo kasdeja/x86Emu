@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <vector>
 #include "Memory.h"
 #include "Vga.h"
 #include "VgaTables.h"
@@ -148,6 +150,9 @@ Vga::Vga(Memory& memory)
         m_videoMemText[2 * n]     = 32;
         m_videoMemText[2 * n + 1] = 7;
     }
+
+    // Other
+    m_screenshotCnt = 0;
 }
 
 Vga::~Vga()
@@ -604,6 +609,35 @@ void Vga::DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride)
     {
         m_cursorBlinkCnt = 0;
     }
+}
+
+void Vga::Screenshot()
+{
+    std::vector<uint8_t> pixels;
+    char fname[32];
+
+    pixels.reserve(320 * 200 * 3);
+
+    for(int y = 0; y < 200; y++)
+    {
+        uint8_t* line = m_videoMem + ((m_startAddress + y * 320) & 0x3ffff);
+
+        for(int x = 0; x < 320; x++)
+        {
+            uint8_t color = *line++;
+
+            pixels.push_back(m_vgaColorMap[color][0] * 4);
+            pixels.push_back(m_vgaColorMap[color][1] * 4);
+            pixels.push_back(m_vgaColorMap[color][2] * 4);
+        }
+    }
+
+    sprintf(fname, "screen%d.pgm", m_screenshotCnt++);
+    FILE *file = ::fopen(fname, "wb");
+
+    fprintf(file, "P6\n%d %d\n%d\n", 320, 200, 255);
+    fwrite(pixels.data(), 1, pixels.size(), file);
+    fclose(file);
 }
 
 // private methods

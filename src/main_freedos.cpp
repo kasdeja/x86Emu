@@ -205,7 +205,7 @@ int main(int argc, char **argv)
     //bios->LoadMBR(0);
     bios->LoadMBR(0x80);
 
-    sdl->onKeyEvent = [keyboard, bios, &diskIdx, &diskList](uint8_t scancode) {
+    sdl->onKeyEvent = [keyboard, vga, bios, &diskIdx, &diskList](uint8_t scancode) {
         if (scancode == 0x58) // F12, change floppy disk
         {
             diskIdx++;
@@ -216,6 +216,10 @@ int main(int argc, char **argv)
 
             printf("floppy disk image %s\n", diskList[diskIdx].c_str());
             bios->OpenFloppyDrive(0, diskList[diskIdx]);
+        }
+        else if (scancode == 0x57) // F11, screenshot
+        {
+            vga->Screenshot();
         }
         else
         {

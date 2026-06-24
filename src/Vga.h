@@ -35,6 +35,7 @@ public:
 
     void SetMode(Mode mode);
     void DrawScreenFiltered(uint8_t* pixels, int width, int height, int stride);
+    void Screenshot();
 
 private:
     struct FilterBank
@@ -91,6 +92,8 @@ private:
     FilterBank  m_vFilter;
     __m128i*    m_linebuffer;
     __m128i*    m_pixelbuffer;
+
+    int         m_screenshotCnt;
 
     // private methods
     FilterBank DesignFilter(int inputRate, int outputRate, int taps, double cutoff);

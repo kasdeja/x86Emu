@@ -280,6 +280,17 @@ int main(int argc, char **argv)
     cpu->SetReg16(CpuInterface::DI, 0x80);
     cpu->SetReg16(CpuInterface::BP, 0x91C);
 
+    sdl->onKeyEvent = [keyboard, vga](uint8_t scancode) {
+        if (scancode == 0x57) // F11, screenshot
+        {
+            vga->Screenshot();
+        }
+        else
+        {
+            keyboard->AddKey(scancode);
+        }
+    };
+
     auto runEmulator =
         [cpu, pic, pit, keyboard](int64_t usec, int64_t instructionsPerSecond) -> bool
         {
@@ -315,7 +326,6 @@ int main(int argc, char **argv)
 
     if (sdl->Initialize())
     {
-        sdl->onKeyEvent = [keyboard](uint8_t scancode) { keyboard->AddKey(scancode); };
         running = true;
 
         thread = std::thread(
